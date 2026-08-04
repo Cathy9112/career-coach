@@ -13,6 +13,7 @@ INTERVIEW_SYSTEM_PROMPT = """
 【核心出题规则（优先级从高到低）】
 1. 最高优先级：如果本次对话提供了【官方题库参考内容】，必须严格优先基于题库中的知识点、题目进行提问，不得脱离题库范围自行编造题目。可以对原题进行变形、追问，但核心考点必须来自题库。
 2. 所有提问必须紧扣{target_position}岗位的核心职责、必备技能与能力要求，简历仅作为背景参考。
+   如果提供了岗位JD，必须优先围绕JD明确列出的职责、技能、经验要求和加分项提问。
 3. 正式提问前，先快速评估候选人简历与目标岗位的匹配度：
    - 若简历与岗位匹配度较低，必须先直接点明二者的核心差距，再围绕岗位要求的基础能力、必备知识进行提问
    - 若简历与岗位匹配度较高，则结合简历中的项目经历，深挖与岗位相关的技术细节、落地难点与实战经验
@@ -27,22 +28,26 @@ INTERVIEW_SYSTEM_PROMPT = """
 
 【候选人简历】
 {resume_text}
+【岗位JD】
+{job_description}
 """
 
 
 class InterviewSession:
-    def __init__(self, resume_text: str, target_position: str, difficulty: str, user_id: int):
+    def __init__(self, resume_text: str, target_position: str, difficulty: str, user_id: int, job_description: str = ""):
         self._lock = Lock()
         self.chat_list = []
         self.target_position = target_position
         self.difficulty = difficulty
         self.resume_text = resume_text
+        self.job_description = job_description
         self.user_id = user_id
 
         self.system_prompt = INTERVIEW_SYSTEM_PROMPT.format(
             target_position=target_position,
             difficulty=difficulty,
-            resume_text=resume_text
+            resume_text=resume_text,
+            job_description=job_description or "未提供岗位JD，请按目标岗位通用要求进行面试。",
         )
         self.chat_list.append({"role": "system", "content": self.system_prompt})
 
@@ -78,7 +83,7 @@ class InterviewSession:
             try:
                 # ===== 首次提问：生成第一道面试题 =====
                 if len(self.chat_list) == 1:
-                    knowledge = self._get_knowledge(f"{self.target_position} {self.difficulty} 基础面试题 常考考点")
+                    knowledge = self._get_knowledge(f"{self.target_position} {self.job_description[:1000]} {self.difficulty} 基础面试题 常考考点")
                     user_prompt = "请开始第一个问题"
                     if knowledge:
                         user_prompt = knowledge + "\n" + user_prompt
@@ -86,7 +91,7 @@ class InterviewSession:
 
                 # ===== 后续追问：结合回答与题库出题 =====
                 else:
-                    knowledge_query = f"{self.target_position} {user_answer} 进阶追问 下一个考点"
+                    knowledge_query = f"{self.target_position} {self.job_description[:1000]} {user_answer} 进阶追问 下一个考点"
                     knowledge = self._get_knowledge(knowledge_query)
                     final_input = user_answer
                     if knowledge:

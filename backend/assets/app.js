@@ -388,6 +388,10 @@
             return document.getElementById("targetPosition").value.trim();
         }
 
+        function getJobDescription() {
+            return document.getElementById("jobDescription").value.trim();
+        }
+
         /**
          * 岗位/难度修改后重置面试会话，清空历史对话
          */
@@ -403,6 +407,7 @@
         async function optimizeResume() {
             const resume = document.getElementById("resumeText").value.trim();
             const position = getCurrentPosition();
+            const jobDescription = getJobDescription();
 
             // 校验必填项
             if (!resume) return alert("请先填写或上传简历");
@@ -419,7 +424,11 @@
                 const data = await request("/api/resume/optimize", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ resume_text: resume, target_position: position })
+                    body: JSON.stringify({
+                        resume_text: resume,
+                        target_position: position,
+                        job_description: jobDescription
+                    })
                 });
                 resultBox.innerText = data.data.suggestion;
             } catch (e) {
@@ -436,6 +445,7 @@
         async function generateFullResume() {
             const resume = document.getElementById("resumeText").value.trim();
             const position = getCurrentPosition();
+            const jobDescription = getJobDescription();
 
             if (!resume) return alert("请先填写或上传简历");
             if (!position) return alert("请输入目标岗位");
@@ -451,7 +461,11 @@
                 const data = await request("/api/resume/generate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ resume_text: resume, target_position: position })
+                    body: JSON.stringify({
+                        resume_text: resume,
+                        target_position: position,
+                        job_description: jobDescription
+                    })
                 });
                 resultBox.innerText = data.data.resume;
             } catch (e) {
@@ -509,6 +523,7 @@
             if (!interviewSessionId) {
                 const resume = document.getElementById("resumeText").value.trim();
                 const diff = document.getElementById("difficulty").value;
+                const jobDescription = getJobDescription();
 
                 if (!resume) {
                     alert("请先填写或上传简历");
@@ -523,7 +538,8 @@
                         body: JSON.stringify({
                             resume_text: resume,
                             target_position: position,
-                            difficulty: diff
+                            difficulty: diff,
+                            job_description: jobDescription
                         })
                     });
                     interviewSessionId = data.data.session_id;
@@ -700,6 +716,7 @@
         document.getElementById("logoutBtn").addEventListener("click", logout);
         document.getElementById("resumeFile").addEventListener("change", handleFileUpload);
         document.getElementById("targetPosition").addEventListener("change", onPositionChange);
+        document.getElementById("jobDescription").addEventListener("change", onPositionChange);
         document.getElementById("difficulty").addEventListener("change", onPositionChange);
         document.getElementById("optBtn").addEventListener("click", optimizeResume);
         document.getElementById("genBtn").addEventListener("click", generateFullResume);

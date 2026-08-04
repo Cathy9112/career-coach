@@ -229,6 +229,10 @@
             border-bottom: 1px solid #eee;
         }
 
+        .job-description-input {
+            height: 140px;
+        }
+
         input[type="file"] {
             width: 100%;
             padding: 12px;

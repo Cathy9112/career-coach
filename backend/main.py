@@ -230,6 +230,7 @@ class ResumeOptimizeReq(BaseModel):
     target_position: str = Field(
         default="Java后端开发工程师", min_length=1, max_length=200
     )
+    job_description: str = Field(default="", max_length=20_000)
 
 
 # Pydantic实体类，开启模拟面试接口的入参校验模型
@@ -237,6 +238,7 @@ class InterviewStartReq(BaseModel):
     resume_text: str = Field(..., min_length=1, max_length=50_000)
     target_position: str = Field(..., min_length=1, max_length=200)
     difficulty: str = Field(default="中级", min_length=1, max_length=50)
+    job_description: str = Field(default="", max_length=20_000)
 
 
 class InterviewStreamReq(BaseModel):
@@ -261,6 +263,10 @@ def _clean_text(value: str, field_name: str) -> str:
     return cleaned
 
 
+def _clean_optional_text(value: str) -> str:
+    return value.strip()
+
+
 def _sse(payload: dict) -> str:
     return f"data:{json.dumps(payload, ensure_ascii=False)}\n\n"
 
@@ -280,6 +286,7 @@ def _save_interview(session_id: str, session: InterviewSession, user_id: int) ->
     session_store.save("interview", session_id, {
         "resume_text": session.resume_text,
         "target_position": session.target_position,
+        "job_description": session.job_description,
         "difficulty": session.difficulty,
         "chat_list": session.chat_list,
         "user_id": user_id,
@@ -295,6 +302,7 @@ def _load_interview(session_id: str, user_id: int) -> InterviewSession | None:
         payload["target_position"],
         payload["difficulty"],
         user_id,
+        payload.get("job_description", ""),
     )
     session.chat_list = payload.get("chat_list", session.chat_list)
     return session
@@ -392,6 +400,7 @@ def api_resume_optimize(req: ResumeOptimizeReq, user: User = Depends(get_current
         result = optimize_resume(
             _clean_text(req.resume_text, "resume_text"),
             _clean_text(req.target_position, "target_position"),
+            _clean_optional_text(req.job_description),
         )
         return {"code": 200, "data": {"suggestion": result}}
     except HTTPException:
@@ -413,6 +422,7 @@ def api_resume_generate(req: ResumeOptimizeReq, user: User = Depends(get_current
         result = generate_optimized_resume(
             _clean_text(req.resume_text, "resume_text"),
             _clean_text(req.target_position, "target_position"),
+            _clean_optional_text(req.job_description),
         )
         return {"code": 200, "data": {"resume": result}}
     except HTTPException:
@@ -434,12 +444,14 @@ def api_interview_start(req: InterviewStartReq, user: User = Depends(get_current
     resume_text = _clean_text(req.resume_text, "resume_text")
     target_position = _clean_text(req.target_position, "target_position")
     difficulty = _clean_text(req.difficulty, "difficulty")
+    job_description = _clean_optional_text(req.job_description)
     session_id = _next_session_id("interview")
     session = InterviewSession(
         resume_text=resume_text,
         target_position=target_position,
         difficulty=difficulty,
         user_id=user.id,
+        job_description=job_description,
     )
     _save_interview(session_id, session, user.id)
     return {"code": 200, "data": {"session_id": session_id}}

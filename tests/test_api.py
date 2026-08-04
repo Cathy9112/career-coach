@@ -158,12 +158,40 @@ class ApiTestCase(unittest.TestCase):
                 json={
                     "resume_text": "  backend developer  ",
                     "target_position": "  Python engineer  ",
+                    "job_description": "  FastAPI and Redis required  ",
                 },
             )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["data"]["suggestion"], "optimized")
-        optimize_resume.assert_called_once_with("backend developer", "Python engineer")
+        optimize_resume.assert_called_once_with(
+            "backend developer",
+            "Python engineer",
+            "FastAPI and Redis required",
+        )
+
+    def test_resume_generation_uses_job_description(self):
+        self.authenticate()
+        with (
+            patch.object(main, "enforce_llm_limits", return_value=None),
+            patch.object(main, "generate_optimized_resume", return_value="generated") as generate_resume,
+        ):
+            response = self.client.post(
+                "/api/resume/generate",
+                json={
+                    "resume_text": "backend developer",
+                    "target_position": "Python engineer",
+                    "job_description": "FastAPI and MySQL required",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["resume"], "generated")
+        generate_resume.assert_called_once_with(
+            "backend developer",
+            "Python engineer",
+            "FastAPI and MySQL required",
+        )
 
     def test_interview_and_chat_sessions_are_created_for_user(self):
         user = self.authenticate()
@@ -174,6 +202,7 @@ class ApiTestCase(unittest.TestCase):
                     "resume_text": "resume",
                     "target_position": "Python engineer",
                     "difficulty": "medium",
+                    "job_description": "Build APIs with FastAPI",
                 },
             )
 
@@ -181,6 +210,7 @@ class ApiTestCase(unittest.TestCase):
         interview_id = interview_response.json()["data"]["session_id"]
         self.assertTrue(interview_id.startswith("interview_"))
         self.assertEqual(save_interview.call_args.args[2], user.id)
+        self.assertEqual(save_interview.call_args.args[1].job_description, "Build APIs with FastAPI")
 
         with patch.object(main, "_save_chat") as save_chat:
             chat_response = self.client.post("/api/chat/start")
