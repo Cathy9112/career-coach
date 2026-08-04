@@ -1,6 +1,7 @@
 services:
   app:
     environment:
+      COOKIE_SECURE: "false"
       GUNICORN_WORKERS: "1"
 
   nginx:

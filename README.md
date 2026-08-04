@@ -106,7 +106,7 @@ Docker 构建阶段默认通过阿里云 PyPI 镜像安装 Python 依赖，并�
 
 ### 公网 IP 临时部署
 
-没有域名和 HTTPS 证书时，可以在低流量、2GB 内存服务器上使用 HTTP 覆盖配置。该配置只开放 `80` 端口，并将 Gunicorn Worker 降为 `1`；MySQL、Redis、Chroma 和 FastAPI 内部端口仍不会直接暴露到公网。
+没有域名和 HTTPS 证书时，可以在低流量、2GB 内存服务器上使用 HTTP 覆盖配置。该配置只开放 `80` 端口、将 Gunicorn Worker 降为 `1`，并临时关闭 Cookie 的 `Secure` 标志以支持 HTTP 登录；MySQL、Redis、Chroma 和 FastAPI 内部端口仍不会直接暴露到公网。
 
 ```bash
 docker compose -f docker-compose.prod.yml -f docker-compose.ip.yml config

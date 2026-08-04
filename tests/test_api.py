@@ -50,6 +50,7 @@ class ApiTestCase(unittest.TestCase):
     def test_register_returns_token_and_cookie(self):
         user = self.user()
         with (
+            patch.dict(os.environ, {"COOKIE_SECURE": "false"}),
             patch.object(main, "create_user", return_value=user) as create_user,
             patch.object(main, "create_access_token", return_value="register-token"),
         ):
@@ -62,7 +63,23 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(response.json()["data"]["access_token"], "register-token")
         self.assertEqual(response.cookies.get("access_token"), "register-token")
         self.assertIn("HttpOnly", response.headers["set-cookie"])
+        self.assertNotIn("; Secure", response.headers["set-cookie"])
         create_user.assert_called_once_with("demo_user", "password123")
+
+    def test_secure_cookie_can_be_enabled(self):
+        user = self.user()
+        with (
+            patch.dict(os.environ, {"COOKIE_SECURE": "true"}),
+            patch.object(main, "create_user", return_value=user),
+            patch.object(main, "create_access_token", return_value="secure-token"),
+        ):
+            response = self.client.post(
+                "/api/auth/register",
+                json={"username": "secure_user", "password": "password123"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("; Secure", response.headers["set-cookie"])
 
     def test_register_duplicate_username_returns_409(self):
         with patch.object(main, "create_user", side_effect=ValueError("exists")):

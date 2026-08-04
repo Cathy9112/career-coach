@@ -37,6 +37,13 @@ class Settings:
     jwt_algorithm: str = "HS256"
 
     @property
+    def cookie_secure(self) -> bool:
+        configured = os.getenv("COOKIE_SECURE")
+        if configured is None:
+            return self.environment == "production"
+        return configured.strip().lower() in {"1", "true", "yes", "on"}
+
+    @property
     def redis_url(self) -> str:
         redis_url = read_secret("REDIS_URL")
         if redis_url:

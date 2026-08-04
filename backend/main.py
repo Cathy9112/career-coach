@@ -314,7 +314,14 @@ def _load_chat(session_id: str, user_id: int) -> ChatSession | None:
 
 
 def _auth_response(response: Response, token: str) -> dict:
-    response.set_cookie("access_token", token, httponly=True, secure=os.getenv("APP_ENV") == "production", samesite="lax", max_age=8 * 3600)
+    response.set_cookie(
+        "access_token",
+        token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        max_age=8 * 3600,
+    )
     return {"code": 200, "data": {"access_token": token, "token_type": "bearer"}}
 
 
@@ -350,7 +357,12 @@ def api_login(req: AuthReq, response: Response, request: Request):
 
 @app.post("/api/auth/logout")
 def api_logout(response: Response):
-    response.delete_cookie("access_token")
+    response.delete_cookie(
+        "access_token",
+        secure=settings.cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
     return {"code": 200, "data": {"message": "logged out"}}
 
 
