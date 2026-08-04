@@ -98,7 +98,7 @@ docker compose -f docker-compose.prod.yml ps -a
 docker compose -f docker-compose.prod.yml logs -f --tail=100
 ```
 
-Compose 会先等待 MySQL 健康，再由 `migrate` 服务执行 `alembic upgrade head`；迁移成功后才启动应用，Nginx 最后等待应用就绪。
+Compose 会先等待 MySQL 健康，再由 `migrate` 服务执行 `alembic upgrade head`；迁移成功且 Chroma 已启动后才启动应用。应用的 readiness 会从服务网络检查 MySQL、Redis 和 Chroma，Nginx 最后等待应用就绪。
 
 默认镜像地址通过 DaoCloud 公益镜像代理访问 Docker Hub，适合中国内地服务器首次部署。所有镜像地址均可在 `.env` 中通过 `PYTHON_IMAGE`、`MYSQL_IMAGE`、`REDIS_IMAGE`、`CHROMA_IMAGE` 和 `NGINX_IMAGE` 覆盖，后续可切换为个人阿里云 ACR 仓库。
 
