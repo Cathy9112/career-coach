@@ -798,6 +798,9 @@
             item.addEventListener("click", () => switchPage(item.dataset.page));
         });
         document.getElementById("logoutBtn").addEventListener("click", logout);
+        document.getElementById("resumeFile").addEventListener("click", (event) => {
+            event.currentTarget.value = "";
+        });
         document.getElementById("resumeFile").addEventListener("change", handleFileUpload);
         document.getElementById("targetPosition").addEventListener("change", onPositionChange);
         document.getElementById("jobDescription").addEventListener("change", onPositionChange);

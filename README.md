@@ -163,7 +163,7 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | GET | `/api/knowledge/query` | 隔离检索当前用户知识库 |
 | GET | `/api/usage` | 查看每日调用额度 |
 
-简历优化页面按“上传/填写简历 → 生成优化建议 → 生成完整简历 → 导出”顺序使用。导出时，TXT 保持 TXT 类型并使用带 BOM 的 UTF-8 编码，Windows 记事本和常见编辑器可正确识别中文；DOCX 基于原文档替换正文并尽量保留样式、页面设置和页眉页脚；PDF 保持 PDF 类型和首个页面尺寸，但会重新排版，复杂图形、图片和原 PDF 的精确布局无法保证完全不变。未上传源文件时默认导出带 BOM 的 UTF-8 TXT。
+简历优化页面按“上传/填写简历 → 生成优化建议 → 生成完整简历 → 导出”顺序使用。导出时，TXT 保持 TXT 类型并使用带 BOM 的 UTF-8 编码，Windows 记事本和常见编辑器可正确识别中文；DOCX 基于原文档替换正文并尽量保留样式、页面设置和页眉页脚；PDF 由 ReportLab 生成并嵌入中文字体子集，同时保持源 PDF 的首个页面尺寸，因此不会依赖访问者电脑中的中文字体，但复杂图形、图片和原 PDF 的精确布局无法保证完全不变。未上传源文件时默认导出带 BOM 的 UTF-8 TXT。
 
 ## 测试
 

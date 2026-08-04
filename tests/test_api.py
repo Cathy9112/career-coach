@@ -211,7 +211,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertTrue(response.content.startswith(b"%PDF-"))
         exported_pdf = PyPDF2.PdfReader(BytesIO(response.content))
         self.assertGreater(len(exported_pdf.pages), 0)
-        self.assertIn("4F18", response.content.decode("ascii", errors="ignore"))
+        self.assertGreater(len(response.content), 5_000)
+        self.assertTrue(b"/FontFile2" in response.content or b"/FontFile3" in response.content)
 
     def test_resume_export_rejects_unsupported_extension(self):
         self.authenticate()

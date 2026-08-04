@@ -165,15 +165,38 @@ def _wrap_pdf_line(value: str, max_width: int) -> list[str]:
     return wrapped
 
 
-def _pdf_text_hex(value: str) -> str:
-    return ("\ufeff" + value).encode("utf-16-be").hex().upper()
-
-
 def _build_pdf(optimized_text: str, page_width: float, page_height: float) -> bytes:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
     margin = 48.0
     font_size = 10.5
     line_height = 17.0
     max_width = max(20, int((page_width - margin * 2) / (font_size * 0.55)))
+    embedded_font_name = "CareerCoachChinese"
+    configured_font = os.getenv("RESUME_PDF_FONT_PATH", "").strip()
+    font_candidates = [
+        configured_font,
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "C:/Windows/Fonts/NotoSansSC-VF.ttf",
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/simhei.ttf",
+    ]
+    font_name = "STSong-Light"
+    for font_path in font_candidates:
+        if font_path and Path(font_path).is_file():
+            if embedded_font_name not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(
+                    TTFont(embedded_font_name, font_path, subfontIndex=0)
+                )
+            font_name = embedded_font_name
+            break
+    if font_name not in pdfmetrics.getRegisteredFontNames():
+        pdfmetrics.registerFont(UnicodeCIDFont(font_name))
+
     lines: list[str] = []
     for source_line in optimized_text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
         lines.extend(_wrap_pdf_line(source_line, max_width))
@@ -183,62 +206,19 @@ def _build_pdf(optimized_text: str, page_width: float, page_height: float) -> by
         lines[index:index + lines_per_page]
         for index in range(0, len(lines), lines_per_page)
     ] or [[""]]
-    page_refs = [7 + index * 2 for index in range(len(page_chunks))]
-    to_unicode = b"""/CIDInit /ProcSet findresource begin
-12 dict begin
-begincmap
-/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
-/CMapName /CareerCoachUnicode def
-/CMapType 2 def
-1 begincodespacerange
-<0000> <FFFF>
-endcodespacerange
-1 beginbfrange
-<0000> <FFFF> <0000>
-endbfrange
-endcmap
-CMapName currentdict /CMap defineresource pop
-end
-end"""
-    objects: list[bytes] = [
-        b"<< /Type /Catalog /Pages 2 0 R >>",
-        f"<< /Type /Pages /Count {len(page_refs)} /Kids [{' '.join(f'{ref} 0 R' for ref in page_refs)}] >>".encode("ascii"),
-        b"<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light /Encoding /UniGB-UCS2-H /DescendantFonts [4 0 R] /ToUnicode 5 0 R >>",
-        b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 4 >> /DW 1000 >>",
-        f"<< /Length {len(to_unicode)} >>\nstream\n".encode("ascii") + to_unicode + b"\nendstream",
-    ]
-
-    for page_index, page_lines in enumerate(page_chunks):
-        content_ref = 6 + page_index * 2
-        commands = ["BT", f"/F1 {font_size} Tf", f"1 0 0 1 {margin} {page_height - margin} Tm"]
-        for line_index, line in enumerate(page_lines):
-            if line_index:
-                commands.append(f"0 -{line_height} Td")
-            commands.append(f"<{_pdf_text_hex(line)}> Tj")
-        commands.append("ET")
-        stream = "\n".join(commands).encode("ascii")
-        objects.append(f"<< /Length {len(stream)} >>\nstream\n".encode("ascii") + stream + b"\nendstream")
-        objects.append(
-            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_width:.2f} {page_height:.2f}] "
-            f"/Resources << /Font << /F1 3 0 R >> >> /Contents {content_ref} 0 R >>".encode("ascii")
-        )
-
-    output = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-    offsets = [0]
-    for object_number, body in enumerate(objects, start=1):
-        offsets.append(len(output))
-        output.extend(f"{object_number} 0 obj\n".encode("ascii"))
-        output.extend(body)
-        output.extend(b"\nendobj\n")
-    xref_offset = len(output)
-    output.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
-    output.extend(b"0000000000 65535 f \n")
-    for offset in offsets[1:]:
-        output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
-    output.extend(
-        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii")
-    )
-    return bytes(output)
+    output = BytesIO()
+    pdf = canvas.Canvas(output, pagesize=(page_width, page_height), pageCompression=1)
+    pdf.setTitle("优化后简历")
+    for page_lines in page_chunks:
+        text_object = pdf.beginText(margin, page_height - margin)
+        text_object.setFont(font_name, font_size)
+        text_object.setLeading(line_height)
+        for line in page_lines:
+            text_object.textLine(line)
+        pdf.drawText(text_object)
+        pdf.showPage()
+    pdf.save()
+    return output.getvalue()
 
 
 def _export_pdf(original_bytes: bytes, optimized_text: str) -> bytes:
