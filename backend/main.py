@@ -2,12 +2,14 @@ import asyncio
 import json
 import logging
 import os
+import unicodedata
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 from urllib.request import urlopen
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException, File, Query, Request, Response, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, File, Form, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -105,6 +107,144 @@ def parse_resume_file(file: UploadFile) -> str:
     if not content.strip():
         raise HTTPException(status_code=400, detail="文件内容为空")
     return content
+
+
+def _set_paragraph_text(paragraph, text: str) -> None:
+    if paragraph.runs:
+        paragraph.runs[0].text = text
+        for run in paragraph.runs[1:]:
+            run.text = ""
+    else:
+        paragraph.add_run(text)
+
+
+def _document_paragraphs(document) -> list:
+    from docx.text.paragraph import Paragraph
+
+    return [
+        Paragraph(element, document)
+        for element in document.element.body.iterdescendants()
+        if element.tag.endswith("}p")
+    ]
+
+
+def _export_docx(original_bytes: bytes, optimized_text: str) -> bytes:
+    from docx import Document
+
+    document = Document(BytesIO(original_bytes))
+    lines = optimized_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    existing_paragraphs = _document_paragraphs(document)
+
+    for index, paragraph in enumerate(existing_paragraphs):
+        _set_paragraph_text(paragraph, lines[index] if index < len(lines) else "")
+
+    for line in lines[len(existing_paragraphs):]:
+        document.add_paragraph(line)
+
+    output = BytesIO()
+    document.save(output)
+    return output.getvalue()
+
+
+def _wrap_pdf_line(value: str, max_width: int) -> list[str]:
+    if not value:
+        return [""]
+    wrapped: list[str] = []
+    current = ""
+    current_width = 0
+    for char in value:
+        char_width = 2 if unicodedata.east_asian_width(char) in {"W", "F", "A"} else 1
+        if current and current_width + char_width > max_width:
+            wrapped.append(current)
+            current = char
+            current_width = char_width
+        else:
+            current += char
+            current_width += char_width
+    wrapped.append(current)
+    return wrapped
+
+
+def _pdf_text_hex(value: str) -> str:
+    return ("\ufeff" + value).encode("utf-16-be").hex().upper()
+
+
+def _build_pdf(optimized_text: str, page_width: float, page_height: float) -> bytes:
+    margin = 48.0
+    font_size = 10.5
+    line_height = 17.0
+    max_width = max(20, int((page_width - margin * 2) / (font_size * 0.55)))
+    lines: list[str] = []
+    for source_line in optimized_text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        lines.extend(_wrap_pdf_line(source_line, max_width))
+
+    lines_per_page = max(1, int((page_height - margin * 2) / line_height))
+    page_chunks = [
+        lines[index:index + lines_per_page]
+        for index in range(0, len(lines), lines_per_page)
+    ] or [[""]]
+    page_refs = [6 + index * 2 for index in range(len(page_chunks))]
+    objects: list[bytes] = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        f"<< /Type /Pages /Count {len(page_refs)} /Kids [{' '.join(f'{ref} 0 R' for ref in page_refs)}] >>".encode("ascii"),
+        b"<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light /Encoding /UniGB-UCS2-H /DescendantFonts [4 0 R] >>",
+        b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 4 >> >>",
+    ]
+
+    for page_index, page_lines in enumerate(page_chunks):
+        content_ref = 5 + page_index * 2
+        commands = ["BT", f"/F1 {font_size} Tf", f"1 0 0 1 {margin} {page_height - margin} Tm"]
+        for line_index, line in enumerate(page_lines):
+            if line_index:
+                commands.append(f"0 -{line_height} Td")
+            commands.append(f"<{_pdf_text_hex(line)}> Tj")
+        commands.append("ET")
+        stream = "\n".join(commands).encode("ascii")
+        objects.append(f"<< /Length {len(stream)} >>\nstream\n".encode("ascii") + stream + b"\nendstream")
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {page_width:.2f} {page_height:.2f}] "
+            f"/Resources << /Font << /F1 3 0 R >> >> /Contents {content_ref} 0 R >>".encode("ascii")
+        )
+
+    output = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for object_number, body in enumerate(objects, start=1):
+        offsets.append(len(output))
+        output.extend(f"{object_number} 0 obj\n".encode("ascii"))
+        output.extend(body)
+        output.extend(b"\nendobj\n")
+    xref_offset = len(output)
+    output.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    output.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    output.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii")
+    )
+    return bytes(output)
+
+
+def _export_pdf(original_bytes: bytes, optimized_text: str) -> bytes:
+    import PyPDF2
+
+    reader = PyPDF2.PdfReader(BytesIO(original_bytes))
+    if reader.pages:
+        media_box = reader.pages[0].mediabox
+        page_width = float(media_box.width)
+        page_height = float(media_box.height)
+    else:
+        page_width, page_height = 595.28, 841.89
+    return _build_pdf(optimized_text, page_width, page_height)
+
+
+def _download_headers(filename: str) -> dict[str, str]:
+    ascii_filename = f"optimized_resume{Path(filename).suffix.lower()}"
+    encoded_filename = quote(filename)
+    return {
+        "Content-Disposition": (
+            f'attachment; filename="{ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}'
+        )
+    }
 
 
 app = FastAPI(title="Career Coach API", version="1.1")
@@ -594,7 +734,53 @@ def api_resume_upload(file: UploadFile = File(...), _: User = Depends(get_curren
         raise HTTPException(status_code=400, detail="无法解析简历文件") from exc
 
 
-# ========== 8. 面试知识库文档上传入库接口 ==========
+# ========== 8. 优化简历导出接口 ==========
+@app.post("/api/resume/export")
+def api_resume_export(
+    optimized_text: str = Form(..., min_length=1, max_length=50_000),
+    file: UploadFile | None = File(None),
+    _: User = Depends(get_current_user),
+):
+    cleaned_text = _clean_text(optimized_text, "optimized_text")
+    if file is None or not file.filename:
+        filename = "优化后简历.txt"
+        return Response(
+            content=cleaned_text.encode("utf-8"),
+            media_type="text/plain; charset=utf-8",
+            headers=_download_headers(filename),
+        )
+
+    source_name = file.filename.replace("\\", "/").split("/")[-1]
+    extension = Path(source_name).suffix.lower()
+    if extension not in {".txt", ".docx", ".pdf"}:
+        raise HTTPException(status_code=400, detail="仅支持导出 .txt、.docx、.pdf 格式文件")
+
+    original_bytes = _read_upload(file)
+    output_name = f"{Path(source_name).stem}_优化版{extension}"
+    try:
+        if extension == ".txt":
+            exported_bytes = cleaned_text.encode("utf-8")
+            media_type = "text/plain; charset=utf-8"
+        elif extension == ".docx":
+            exported_bytes = _export_docx(original_bytes, cleaned_text)
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        else:
+            exported_bytes = _export_pdf(original_bytes, cleaned_text)
+            media_type = "application/pdf"
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Resume export failed")
+        raise HTTPException(status_code=400, detail="无法按源文件格式导出简历") from exc
+
+    return Response(
+        content=exported_bytes,
+        media_type=media_type,
+        headers=_download_headers(output_name),
+    )
+
+
+# ========== 9. 面试知识库文档上传入库接口 ==========
 @app.post("/api/knowledge/upload")
 def api_knowledge_upload(file: UploadFile = File(...), user: User = Depends(get_current_user)):
     """
@@ -640,7 +826,7 @@ def api_knowledge_upload(file: UploadFile = File(...), user: User = Depends(get_
         raise HTTPException(status_code=503, detail="知识库服务暂时不可用") from exc
 
 
-# ========== 9. 向量知识库检索测试接口 ==========
+# ========== 10. 向量知识库检索测试接口 ==========
 @app.get("/api/knowledge/query")
 def api_knowledge_query(
     query: str = Query(..., min_length=1, max_length=500),

@@ -154,6 +154,7 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | POST | `/api/resume/upload` | 上传并解析简历 |
 | POST | `/api/resume/optimize` | 根据简历、目标岗位和可选 JD 生成优化建议 |
 | POST | `/api/resume/generate` | 根据简历、目标岗位和可选 JD 生成完整简历 |
+| POST | `/api/resume/export` | 按上传源文件类型导出优化后的简历 |
 | POST | `/api/interview/start` | 根据简历、目标岗位、可选 JD 和难度创建面试会话 |
 | POST | `/api/interview/stream` | POST SSE 面试流式回答 |
 | POST | `/api/chat/start` | 创建 AI 助手会话 |
@@ -161,6 +162,8 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | POST | `/api/knowledge/upload` | 上传个人知识库 |
 | GET | `/api/knowledge/query` | 隔离检索当前用户知识库 |
 | GET | `/api/usage` | 查看每日调用额度 |
+
+简历优化页面按“上传/填写简历 → 生成优化建议 → 生成完整简历 → 导出”顺序使用。导出时，TXT 保持 TXT 类型，DOCX 基于原文档替换正文并尽量保留样式、页面设置和页眉页脚；PDF 保持 PDF 类型和首个页面尺寸，但会重新排版，复杂图形、图片和原 PDF 的精确布局无法保证完全不变。未上传源文件时默认导出 UTF-8 TXT。
 
 ## 测试
 

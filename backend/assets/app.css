@@ -301,18 +301,14 @@
             background: #fffafa;
         }
 
-        /* 双栏结果展示区域 */
-        .result-row {
-            display: flex;
-            gap: 24px;
-            align-items: flex-start;
-            margin-top: 8px;
+        .resume-action {
+            width: 100%;
         }
 
-        .result-col {
-            flex: 1;
+        .resume-result-section {
             display: flex;
             flex-direction: column;
+            gap: 10px;
         }
 
         .result-box {
@@ -328,6 +324,27 @@
             border-radius: 6px;
             border-bottom: 1px solid #f0f0f0;
             text-align: left;
+        }
+
+        .resume-document-result {
+            max-height: 520px;
+        }
+
+        .export-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .btn-export {
+            width: auto;
+            min-width: 180px;
+        }
+
+        .format-note {
+            color: #888;
+            font-size: 13px;
+            line-height: 1.6;
         }
 
         .empty-tip {
@@ -565,7 +582,7 @@
             .deco-top-right {
                 width: 150px;
             }
-            .form-row, .result-row {
+            .form-row, .export-row {
                 flex-direction: column;
                 gap: 20px;
             }
@@ -575,6 +592,10 @@
             }
             .result-box {
                 max-height: 280px;
+            }
+
+            .btn-export {
+                width: 100%;
             }
         }
 

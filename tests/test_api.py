@@ -2,6 +2,7 @@ import os
 import sys
 import types
 import unittest
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -146,6 +147,86 @@ class ApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["data"]["content"], "Python backend experience")
+
+    def test_resume_export_text_preserves_extension(self):
+        self.authenticate()
+        response = self.client.post(
+            "/api/resume/export",
+            data={"optimized_text": "优化后的简历内容"},
+            files={"file": ("resume.txt", "原始简历".encode("utf-8"), "text/plain")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.headers["content-type"].startswith("text/plain"))
+        self.assertIn(".txt", response.headers["content-disposition"])
+        self.assertEqual(response.content.decode("utf-8"), "优化后的简历内容")
+
+    def test_resume_export_docx_keeps_docx_readable(self):
+        from docx import Document
+
+        source = Document()
+        source.sections[0].top_margin = 123456
+        source.add_heading("原始简历", level=1)
+        source.add_paragraph("原始经历")
+        source_bytes = BytesIO()
+        source.save(source_bytes)
+
+        self.authenticate()
+        response = self.client.post(
+            "/api/resume/export",
+            data={"optimized_text": "优化后的简历\n新的经历"},
+            files={
+                "file": (
+                    "resume.docx",
+                    source_bytes.getvalue(),
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers["content-type"],
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        self.assertIn(".docx", response.headers["content-disposition"])
+        exported = Document(BytesIO(response.content))
+        self.assertIn("优化后的简历", "\n".join(paragraph.text for paragraph in exported.paragraphs))
+        self.assertEqual(exported.sections[0].top_margin, source.sections[0].top_margin)
+
+    def test_resume_export_pdf_preserves_pdf_type(self):
+        import PyPDF2
+
+        self.authenticate()
+        source_pdf = main._build_pdf("原始简历", 595.28, 841.89)
+        response = self.client.post(
+            "/api/resume/export",
+            data={"optimized_text": "优化后的 PDF 简历"},
+            files={"file": ("resume.pdf", source_pdf, "application/pdf")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF-"))
+        self.assertGreater(len(PyPDF2.PdfReader(BytesIO(response.content)).pages), 0)
+
+    def test_resume_export_rejects_unsupported_extension(self):
+        self.authenticate()
+        response = self.client.post(
+            "/api/resume/export",
+            data={"optimized_text": "optimized"},
+            files={"file": ("resume.exe", b"not a resume", "application/octet-stream")},
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_resume_export_requires_authentication(self):
+        response = self.client.post(
+            "/api/resume/export",
+            data={"optimized_text": "optimized"},
+        )
+
+        self.assertEqual(response.status_code, 401)
 
     def test_resume_optimization_uses_cleaned_input(self):
         self.authenticate()

@@ -75,28 +75,29 @@
                         <textarea class="job-description-input" id="jobDescription" placeholder="请粘贴招聘信息中的岗位职责、任职要求和加分项；不填写时将按岗位通用要求分析。"></textarea>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-item">
-                            <button class="btn" id="optBtn">生成优化建议</button>
-                        </div>
-                        <div class="form-item">
-                            <button class="btn" id="genBtn">生成完整简历</button>
+                    <div class="resume-action">
+                        <button class="btn" id="optBtn">生成优化建议</button>
+                    </div>
+
+                    <div class="resume-result-section">
+                        <label class="section-label">优化建议</label>
+                        <div class="result-box" id="optResult">
+                            <span class="empty-tip">点击上方按钮生成优化建议</span>
                         </div>
                     </div>
 
-                    <!-- 双栏结果区 -->
-                    <div class="result-row">
-                        <div class="result-col">
-                            <label class="section-label">优化建议</label>
-                            <div class="result-box" id="optResult">
-                                <span class="empty-tip">点击左侧按钮生成优化建议</span>
-                            </div>
+                    <div class="resume-action">
+                        <button class="btn" id="genBtn">生成完整简历</button>
+                    </div>
+
+                    <div class="resume-result-section">
+                        <label class="section-label">优化后简历</label>
+                        <div class="result-box resume-document-result" id="fullResumeResult">
+                            <span class="empty-tip">点击上方按钮生成完整简历</span>
                         </div>
-                        <div class="result-col">
-                            <label class="section-label">优化后简历</label>
-                            <div class="result-box" id="fullResumeResult">
-                                <span class="empty-tip">点击右侧按钮生成完整简历</span>
-                            </div>
+                        <div class="export-row">
+                            <button class="btn btn-export" id="exportResumeBtn" disabled>导出优化后简历</button>
+                            <span class="format-note" id="resumeFormatNote">未上传源文件时默认导出 TXT；DOCX 将尽量保留原样式，PDF 会保留文件类型和页面尺寸并重新排版。</span>
                         </div>
                     </div>
                 </div>

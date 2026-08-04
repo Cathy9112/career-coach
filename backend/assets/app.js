@@ -4,6 +4,8 @@
         let authMode = "login";
         let interviewAbortController = null;
         let assistantAbortController = null;
+        let uploadedResumeFile = null;
+        let generatedResumeText = "";
 
         // ===================== 通用请求封装函数 =====================
         /**
@@ -307,6 +309,16 @@
             if (!file) return;
 
             const filename = file.name.toLowerCase();
+            if (!filename.endsWith('.txt') && !filename.endsWith('.docx') && !filename.endsWith('.pdf')) {
+                alert("当前不支持该文件类型，请尝试 .txt、.docx 或 .pdf 文件");
+                fileInput.value = "";
+                uploadedResumeFile = null;
+                return;
+            }
+
+            uploadedResumeFile = file;
+            resetGeneratedResume();
+            updateResumeFormatNote();
             // 1、纯文本文件本地读取，不用传给后端
             if (filename.endsWith('.txt')) {
                 const reader = new FileReader();
@@ -316,6 +328,8 @@
                 };
                 reader.onerror = function() {
                     alert("文件读取失败，请重试");
+                    uploadedResumeFile = null;
+                    updateResumeFormatNote();
                 };
                 reader.readAsText(file, "utf-8");
             }
@@ -336,14 +350,30 @@
                         alert("解析失败：" + data.detail);
                     }
                 } catch (e) {
+                    uploadedResumeFile = null;
+                    fileInput.value = "";
+                    updateResumeFormatNote();
                     alert("上传失败：" + e.message);
                 }
             }
-            // 不支持的文件格式
-            else {
-                alert("当前不支持该文件类型，请尝试 .txt、.docx 或 .pdf 文件");
-                fileInput.value = "";
+        }
+
+        function resetGeneratedResume() {
+            generatedResumeText = "";
+            document.getElementById("fullResumeResult").innerHTML = '<span class="empty-tip">点击上方按钮生成完整简历</span>';
+            document.getElementById("exportResumeBtn").disabled = true;
+        }
+
+        function updateResumeFormatNote() {
+            const note = document.getElementById("resumeFormatNote");
+            if (!uploadedResumeFile) {
+                note.innerText = "未上传源文件时默认导出 TXT；DOCX 将尽量保留原样式，PDF 会保留文件类型和页面尺寸并重新排版。";
+                return;
             }
+            const extension = uploadedResumeFile.name.split('.').pop().toUpperCase();
+            note.innerText = extension === "PDF"
+                ? "将导出 PDF，并沿用源文件页面尺寸；复杂排版、图片和图形无法原样保留。"
+                : `将按源文件的 ${extension} 类型导出${extension === "DOCX" ? "，并尽量保留原文档样式与页面设置" : ""}。`;
         }
 
         // ===================== 知识库上传接口 =====================
@@ -456,6 +486,8 @@
             btn.disabled = true;
             btn.innerText = "生成中...";
             resultBox.innerHTML = "";
+            generatedResumeText = "";
+            document.getElementById("exportResumeBtn").disabled = true;
 
             try {
                 const data = await request("/api/resume/generate", {
@@ -467,7 +499,9 @@
                         job_description: jobDescription
                     })
                 });
-                resultBox.innerText = data.data.resume;
+                generatedResumeText = data.data.resume;
+                resultBox.innerText = generatedResumeText;
+                document.getElementById("exportResumeBtn").disabled = false;
             } catch (e) {
                 alert("生成失败：" + e.message);
             } finally {
@@ -585,6 +619,56 @@
                 contentDom.classList.remove("typing-cursor");
                 interviewIsTyping = false;
                 document.getElementById("interviewSendBtn").disabled = false;
+            }
+        }
+
+        function getDownloadFilename(response) {
+            const disposition = response.headers.get("Content-Disposition") || "";
+            const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+            if (encodedMatch) return decodeURIComponent(encodedMatch[1]);
+            const basicMatch = disposition.match(/filename="?([^";]+)"?/i);
+            return basicMatch ? basicMatch[1] : "优化后简历.txt";
+        }
+
+        async function exportResume() {
+            if (!generatedResumeText) return alert("请先生成完整简历");
+
+            const btn = document.getElementById("exportResumeBtn");
+            const formData = new FormData();
+            formData.append("optimized_text", generatedResumeText);
+            if (uploadedResumeFile) formData.append("file", uploadedResumeFile);
+
+            btn.disabled = true;
+            btn.innerText = "导出中...";
+            try {
+                const response = await fetch(`${BACKEND}/api/resume/export`, {
+                    method: "POST",
+                    credentials: "include",
+                    body: formData
+                });
+                if (response.status === 401) {
+                    showAuthOverlay();
+                    throw new Error("登录状态已失效，请重新登录");
+                }
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `导出失败 ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = downloadUrl;
+                link.download = getDownloadFilename(response);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(downloadUrl);
+            } catch (e) {
+                alert("导出失败：" + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "导出优化后简历";
             }
         }
 
@@ -720,6 +804,7 @@
         document.getElementById("difficulty").addEventListener("change", onPositionChange);
         document.getElementById("optBtn").addEventListener("click", optimizeResume);
         document.getElementById("genBtn").addEventListener("click", generateFullResume);
+        document.getElementById("exportResumeBtn").addEventListener("click", exportResume);
         document.getElementById("resetInterviewBtn").addEventListener("click", resetInterview);
         document.getElementById("interviewVoiceBtn").addEventListener("click", toggleInterviewVoice);
         document.getElementById("interviewSendBtn").addEventListener("click", sendInterviewMessage);
