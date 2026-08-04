@@ -1,0 +1,10 @@
+﻿flowchart LR
+    Browser[浏览器] --> Nginx[Nginx<br/>HTTPS / CSP / 反向代理]
+    Nginx --> App[FastAPI + Gunicorn<br/>认证 / 简历 / 面试 / 聊天]
+    App --> MySQL[(MySQL<br/>用户 / 知识库元数据 / 用量)]
+    App --> Redis[(Redis<br/>会话 / 分布式锁 / 限流)]
+    App --> Chroma[(Chroma<br/>持久化向量库)]
+    App --> DashScope[DashScope API<br/>Qwen + text-embedding-v4]
+    Migrate[Alembic migrate] --> MySQL
+    App -. user_id metadata .-> Chroma
+

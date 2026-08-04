@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+secrets/*
+!secrets/.gitkeep
+.venv/
+.idea/
+__pycache__/
+*.py[cod]
+*.sqlite3
+chroma_career.db/
+
+*.db
+.demo_server.pid
+demo_server.py
+docs/demo-server*.log

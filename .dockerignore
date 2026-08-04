@@ -1,0 +1,11 @@
+.git/
+.env
+.env.*
+secrets/
+.venv/
+.idea/
+**/__pycache__/
+**/*.py[cod]
+**/*.sqlite3
+backend/chroma_career.db/
+deploy/certs/

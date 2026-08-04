@@ -1,0 +1,9 @@
+bind = "0.0.0.0:5200"
+workers = 2
+worker_class = "uvicorn.workers.UvicornWorker"
+timeout = 180
+graceful_timeout = 30
+keepalive = 5
+accesslog = "-"
+errorlog = "-"
+capture_output = True

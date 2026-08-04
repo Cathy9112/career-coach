@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Career Coach</title>
+    <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+    <div class="auth-overlay visible" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <div class="auth-card">
+            <h1 class="auth-title" id="authTitle">登录 Career Coach</h1>
+            <p class="auth-subtitle" id="authSubtitle">登录后即可使用简历优化与模拟面试服务。</p>
+            <form class="auth-form" id="authForm">
+                <input id="authUsername" type="text" minlength="3" maxlength="120" autocomplete="username" placeholder="用户名（至少 3 个字符）" required>
+                <input id="authPassword" type="password" minlength="8" maxlength="200" autocomplete="current-password" placeholder="密码（至少 8 个字符）" required>
+                <button class="btn auth-submit" type="submit" id="authSubmitBtn">登录</button>
+            </form>
+            <p class="auth-error" id="authError" role="alert"></p>
+            <button class="auth-switch" type="button" id="authSwitchBtn">没有账号？立即注册</button>
+        </div>
+    </div>
+    <div class="container">
+        <!-- 左侧导航栏 -->
+        <div class="sidebar">
+            <img class="logo-img" src="images/title.jpg" alt="Career Coach">
+
+            <div class="nav">
+                <div class="nav-item active" data-page="resume">简历优化</div>
+                <div class="nav-item" data-page="interview">面试模拟</div>
+                <div class="nav-item" data-page="knowledge">知识库</div>
+                <div class="nav-item" data-page="assistant">AI助手</div>
+            </div>
+            <div class="user-panel" id="userPanel" hidden>
+                <span id="currentUsername"></span>
+                <button class="logout-btn" type="button" id="logoutBtn">退出登录</button>
+            </div>
+        </div>
+
+        <!-- 右侧主内容区 -->
+        <div class="main-content">
+
+            <!-- 简历优化页面 -->
+            <div class="page resume-page active" id="resumePage">
+                <img class="page-deco deco-top-right" src="images/resume.jpg" alt="">
+                <div class="page-title">简历优化</div>
+                <div class="resume-layout">
+                    <div>
+                        <label class="section-label">上传简历文件（支持 .txt、.docx、.pdf 格式）</label>
+                        <input type="file" id="resumeFile" accept=".txt,.docx,.pdf">
+                    </div>
+
+                    <div>
+                        <label class="section-label">原始简历</label>
+                        <textarea id="resumeText" placeholder="请粘贴或编辑你的简历文本..."></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-item">
+                            <label class="section-label">目标岗位</label>
+                            <input type="text" id="targetPosition" placeholder="请输入目标岗位名称">
+                        </div>
+                        <div class="form-item-small">
+                            <label class="section-label">面试难度</label>
+                            <select id="difficulty">
+                                <option value="初级">初级</option>
+                                <option value="中级" selected>中级</option>
+                                <option value="高级">高级</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-item">
+                            <button class="btn" id="optBtn">生成优化建议</button>
+                        </div>
+                        <div class="form-item">
+                            <button class="btn" id="genBtn">生成完整简历</button>
+                        </div>
+                    </div>
+
+                    <!-- 双栏结果区 -->
+                    <div class="result-row">
+                        <div class="result-col">
+                            <label class="section-label">优化建议</label>
+                            <div class="result-box" id="optResult">
+                                <span class="empty-tip">点击左侧按钮生成优化建议</span>
+                            </div>
+                        </div>
+                        <div class="result-col">
+                            <label class="section-label">优化后简历</label>
+                            <div class="result-box" id="fullResumeResult">
+                                <span class="empty-tip">点击右侧按钮生成完整简历</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 面试模拟页面 -->
+            <div class="chat-page" id="interviewPage">
+                <div class="chat-header">
+                    <div class="chat-info" id="interviewInfo">准备就绪 · 中级难度</div>
+                    <button class="btn btn-reset btn-compact" id="resetInterviewBtn">重置对话</button>
+                </div>
+
+                <div class="chat-box" id="interviewChatBox">
+                    <div class="msg-item assistant">
+                        <div class="role-tag">系统</div>
+                        <div class="msg-content">请先在简历优化页面填写简历与目标岗位，然后发送第一条消息开始面试。</div>
+                    </div>
+                </div>
+
+                <div class="input-bar">
+                    <input type="text" id="interviewInput" placeholder="输入你的回答...">
+                    <button class="btn voice-btn" id="interviewVoiceBtn" title="语音输入">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M15.064 2.987a1 1 0 0 1 1 1v16.026a1 1 0 0 1-2 0V3.987a1 1 0 0 1 1-1M8.937 6.182a1 1 0 0 1 1 1v9.636a1 1 0 0 1-2 0V7.182a1 1 0 0 1 1-1M2.809 7.974a1 1 0 0 1 1 1v6.052a1 1 0 0 1-2 0V8.974a1 1 0 0 1 1-1M21.191 7.974a1 1 0 0 1 1 1v6.052a1 1 0 0 1-2 0V8.974a1 1 0 0 1 1-1"></path>
+                        </svg>
+                    </button>
+                    <button class="btn" id="interviewSendBtn">发送</button>
+                </div>
+
+                <img class="page-deco deco-bottom-right" src="images/assistant.jpg" alt="">
+            </div>
+
+            <!-- 知识库页面 -->
+            <div class="page" id="knowledgePage">
+                <img class="page-deco deco-top-right" src="images/knowledge.jpg" alt="">
+                <div class="page-title">知识库</div>
+                <div class="resume-layout">
+                    <div>
+                        <label class="section-label">上传面经题库（仅支持 .txt 格式）</label>
+                        <input type="file" id="knowledgeFile" accept=".txt">
+                    </div>
+                    <div class="knowledge-upload-action">
+                        <button class="btn" id="uploadBtn">上传入库</button>
+                    </div>
+                    <div class="result-box knowledge-result" id="knowledgeResult"></div>
+                    <div class="tip-text">
+                        支持上传面试真题、知识点总结等 txt 文件，系统会自动切分存入向量库。<br>
+                        面试时会自动检索相关内容，优先基于题库出题。知识库持久化保存，重启服务不丢失。
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI助手页面 -->
+            <div class="chat-page" id="assistantPage">
+                <div class="chat-header">
+                    <div class="chat-info">职业小助手 · 随时为你解答问题</div>
+                    <button class="btn btn-reset btn-compact" id="resetAssistantBtn">清空对话</button>
+                </div>
+
+                <div class="chat-box" id="assistantChatBox">
+                    <div class="msg-item assistant">
+                        <div class="role-tag">AI助手</div>
+                        <div class="msg-content">你好，我是职业小助手。有任何求职、面试、技术相关的问题，都可以问我。</div>
+                    </div>
+                </div>
+
+                <div class="input-bar">
+                    <input type="text" id="assistantInput" placeholder="输入你的问题...">
+                    <button class="btn" id="assistantSendBtn">发送</button>
+                </div>
+
+                <img class="page-deco deco-bottom-right" src="images/assistant.jpg" alt="">
+            </div>
+        </div>
+    </div>
+
+    <script src="/assets/app.js" defer></script>
+</body>
+</html>

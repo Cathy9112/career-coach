@@ -1,0 +1,14 @@
+Database schema changes are managed by Alembic.
+
+From the backend directory:
+
+    alembic upgrade head
+    alembic current
+    alembic revision --autogenerate -m "describe schema change"
+
+For a database whose tables were previously created by Base.metadata.create_all(),
+first verify that its schema matches revision 20260803_0001, make a backup, and run:
+
+    alembic stamp 20260803_0001
+
+Do not run stamp on an empty database. Empty databases must use alembic upgrade head.
