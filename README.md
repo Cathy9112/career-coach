@@ -100,6 +100,8 @@ docker compose -f docker-compose.prod.yml logs -f --tail=100
 
 Compose 会先等待 MySQL 健康，再由 `migrate` 服务执行 `alembic upgrade head`；迁移成功后才启动应用，Nginx 最后等待应用就绪。
 
+默认镜像地址通过 DaoCloud 公益镜像代理访问 Docker Hub，适合中国内地服务器首次部署。所有镜像地址均可在 `.env` 中通过 `PYTHON_IMAGE`、`MYSQL_IMAGE`、`REDIS_IMAGE`、`CHROMA_IMAGE` 和 `NGINX_IMAGE` 覆盖，后续可切换为个人阿里云 ACR 仓库。
+
 ### 公网 IP 临时部署
 
 没有域名和 HTTPS 证书时，可以在低流量、2GB 内存服务器上使用 HTTP 覆盖配置。该配置只开放 `80` 端口，并将 Gunicorn Worker 降为 `1`；MySQL、Redis、Chroma 和 FastAPI 内部端口仍不会直接暴露到公网。
