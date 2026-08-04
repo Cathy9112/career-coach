@@ -183,16 +183,33 @@ def _build_pdf(optimized_text: str, page_width: float, page_height: float) -> by
         lines[index:index + lines_per_page]
         for index in range(0, len(lines), lines_per_page)
     ] or [[""]]
-    page_refs = [6 + index * 2 for index in range(len(page_chunks))]
+    page_refs = [7 + index * 2 for index in range(len(page_chunks))]
+    to_unicode = b"""/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /CareerCoachUnicode def
+/CMapType 2 def
+1 begincodespacerange
+<0000> <FFFF>
+endcodespacerange
+1 beginbfrange
+<0000> <FFFF> <0000>
+endbfrange
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end"""
     objects: list[bytes] = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         f"<< /Type /Pages /Count {len(page_refs)} /Kids [{' '.join(f'{ref} 0 R' for ref in page_refs)}] >>".encode("ascii"),
-        b"<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light /Encoding /UniGB-UCS2-H /DescendantFonts [4 0 R] >>",
-        b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 4 >> >>",
+        b"<< /Type /Font /Subtype /Type0 /BaseFont /STSong-Light /Encoding /UniGB-UCS2-H /DescendantFonts [4 0 R] /ToUnicode 5 0 R >>",
+        b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /STSong-Light /CIDSystemInfo << /Registry (Adobe) /Ordering (GB1) /Supplement 4 >> /DW 1000 >>",
+        f"<< /Length {len(to_unicode)} >>\nstream\n".encode("ascii") + to_unicode + b"\nendstream",
     ]
 
     for page_index, page_lines in enumerate(page_chunks):
-        content_ref = 5 + page_index * 2
+        content_ref = 6 + page_index * 2
         commands = ["BT", f"/F1 {font_size} Tf", f"1 0 0 1 {margin} {page_height - margin} Tm"]
         for line_index, line in enumerate(page_lines):
             if line_index:
@@ -745,7 +762,7 @@ def api_resume_export(
     if file is None or not file.filename:
         filename = "优化后简历.txt"
         return Response(
-            content=cleaned_text.encode("utf-8"),
+            content=cleaned_text.encode("utf-8-sig"),
             media_type="text/plain; charset=utf-8",
             headers=_download_headers(filename),
         )
@@ -759,7 +776,7 @@ def api_resume_export(
     output_name = f"{Path(source_name).stem}_优化版{extension}"
     try:
         if extension == ".txt":
-            exported_bytes = cleaned_text.encode("utf-8")
+            exported_bytes = cleaned_text.encode("utf-8-sig")
             media_type = "text/plain; charset=utf-8"
         elif extension == ".docx":
             exported_bytes = _export_docx(original_bytes, cleaned_text)

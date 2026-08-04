@@ -159,7 +159,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.headers["content-type"].startswith("text/plain"))
         self.assertIn(".txt", response.headers["content-disposition"])
-        self.assertEqual(response.content.decode("utf-8"), "优化后的简历内容")
+        self.assertEqual(response.content.decode("utf-8-sig"), "优化后的简历内容")
+        self.assertTrue(response.content.startswith(b"\xef\xbb\xbf"))
 
     def test_resume_export_docx_keeps_docx_readable(self):
         from docx import Document
@@ -208,7 +209,9 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["content-type"], "application/pdf")
         self.assertTrue(response.content.startswith(b"%PDF-"))
-        self.assertGreater(len(PyPDF2.PdfReader(BytesIO(response.content)).pages), 0)
+        exported_pdf = PyPDF2.PdfReader(BytesIO(response.content))
+        self.assertGreater(len(exported_pdf.pages), 0)
+        self.assertIn("4F18", response.content.decode("ascii", errors="ignore"))
 
     def test_resume_export_rejects_unsupported_extension(self):
         self.authenticate()
