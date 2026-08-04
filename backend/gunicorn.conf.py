@@ -1,5 +1,8 @@
+import os
+
+
 bind = "0.0.0.0:5200"
-workers = 2
+workers = int(os.getenv("GUNICORN_WORKERS", "2"))
 worker_class = "uvicorn.workers.UvicornWorker"
 timeout = 180
 graceful_timeout = 30

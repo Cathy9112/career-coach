@@ -1,0 +1,10 @@
+services:
+  app:
+    environment:
+      GUNICORN_WORKERS: "1"
+
+  nginx:
+    ports: !override
+      - "80:80"
+    volumes: !override
+      - ./deploy/nginx.http.conf:/etc/nginx/conf.d/default.conf:ro

@@ -54,6 +54,8 @@ career_coach/
 │   └── requirements.lock        # Linux/Python 3.12 锁定依赖和哈希
 ├── tests/                       # 认证与核心 API 测试
 ├── deploy/nginx.conf            # HTTPS、反向代理和 CSP
+├── deploy/nginx.http.conf       # 公网 IP 临时 HTTP 部署
+├── docker-compose.ip.yml        # 2GB 服务器的 HTTP 覆盖配置
 ├── docker-compose.prod.yml      # 生产服务编排
 ├── Dockerfile                   # 生产镜像
 └── .env.example                 # 非敏感配置示例
@@ -97,6 +99,18 @@ docker compose -f docker-compose.prod.yml logs -f --tail=100
 ```
 
 Compose 会先等待 MySQL 健康，再由 `migrate` 服务执行 `alembic upgrade head`；迁移成功后才启动应用，Nginx 最后等待应用就绪。
+
+### 公网 IP 临时部署
+
+没有域名和 HTTPS 证书时，可以在低流量、2GB 内存服务器上使用 HTTP 覆盖配置。该配置只开放 `80` 端口，并将 Gunicorn Worker 降为 `1`；MySQL、Redis、Chroma 和 FastAPI 内部端口仍不会直接暴露到公网。
+
+```bash
+docker compose -f docker-compose.prod.yml -f docker-compose.ip.yml config
+docker compose -f docker-compose.prod.yml -f docker-compose.ip.yml up -d --build
+docker compose -f docker-compose.prod.yml -f docker-compose.ip.yml ps -a
+```
+
+随后访问 `http://服务器公网IP/`。HTTP 只适合临时部署测试；绑定域名并准备正式证书后，应改回上一节的 HTTPS 启动方式。
 
 ## 配置与密钥
 
