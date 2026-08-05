@@ -194,7 +194,7 @@ def save_interview_history(user_id: int, session_id: str, session, report: dict)
                 user_id=user_id,
                 session_id=session_id,
                 target_position=session.target_position,
-                difficulty=session.difficulty,
+                difficulty="标准",
                 created_at=datetime.now(timezone.utc),
             )
             db.add(history)

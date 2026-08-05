@@ -5,7 +5,7 @@ Career Coach 是一个面向求职者的简历优化与 AI 模拟面试平台。
 ## 项目亮点
 
 - **JD 定向简历优化**：支持 TXT、DOCX、PDF 简历解析，结合目标岗位和招聘 JD 生成优化建议与完整简历。
-- **JD 定向模拟面试**：按目标岗位、招聘 JD 和难度创建独立面试会话，使用 POST + SSE 流式返回回答。
+- **JD 定向模拟面试**：按目标岗位和招聘 JD 创建独立面试会话，使用 POST + SSE 流式返回回答。
 - **AI 求职助手**：提供独立聊天会话，支持 Redis 共享会话和并发更新锁。
 - **个人知识库**：上传 TXT 面试题库，使用 DashScope `text-embedding-v4` 生成向量，并按 `user_id` 隔离检索结果。
 - **用户认证**：注册、登录、退出、HttpOnly Cookie、JWT 和 401 前端跳转。
@@ -155,7 +155,7 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | POST | `/api/resume/optimize` | 根据简历、目标岗位和可选 JD 生成优化建议 |
 | POST | `/api/resume/generate` | 根据简历、目标岗位和可选 JD 生成完整简历 |
 | POST | `/api/resume/export` | 按上传源文件类型导出优化后的简历 |
-| POST | `/api/interview/start` | 根据简历、目标岗位、可选 JD 和难度创建面试会话 |
+| POST | `/api/interview/start` | 根据简历、目标岗位和可选 JD 创建面试会话 |
 | POST | `/api/interview/stream` | POST SSE 面试流式回答 |
 | POST | `/api/interview/report` | 结束面试并生成总分、五维评分和逐题报告 |
 | GET | `/api/interview/history` | List the current user's interview history |

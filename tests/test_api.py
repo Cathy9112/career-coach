@@ -286,7 +286,6 @@ class ApiTestCase(unittest.TestCase):
                 json={
                     "resume_text": "resume",
                     "target_position": "Python engineer",
-                    "difficulty": "medium",
                     "job_description": "Build APIs with FastAPI",
                 },
             )
@@ -358,7 +357,6 @@ class ApiTestCase(unittest.TestCase):
             id="history-1",
             session_id="interview-1",
             target_position="Python工程师",
-            difficulty="中级",
             answered_questions=3,
             overall_score=88,
             created_at=None,
@@ -376,7 +374,6 @@ class ApiTestCase(unittest.TestCase):
             id="history-1",
             session_id="interview-1",
             target_position="Python工程师",
-            difficulty="中级",
             answered_questions=1,
             overall_score=80,
             created_at=None,

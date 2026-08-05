@@ -289,17 +289,16 @@
             // 隐藏所有页面，展示目标页面
             document.querySelectorAll(".page, .chat-page").forEach(el => el.classList.remove("active"));
             document.getElementById(page + "Page").classList.add("active");
-            // 切换到面试页时更新岗位难度标题
+            // 切换到面试页时更新岗位标题
             if (page === "interview") updateInterviewInfo();
         }
 
         /**
-         * 更新面试页面顶部标题（岗位+难度）
+         * 更新面试页面顶部岗位标题
          */
         function updateInterviewInfo() {
             const position = document.getElementById("targetPosition").value.trim() || "未设置岗位";
-            const diff = document.getElementById("difficulty").value;
-            document.getElementById("interviewInfo").innerText = `${position} · ${diff}难度`;
+            document.getElementById("interviewInfo").innerText = position;
         }
 
         // ===================== 简历文件上传解析 =====================
@@ -438,7 +437,7 @@
         }
 
         /**
-         * 岗位/难度修改后重置面试会话，清空历史对话
+         * 岗位修改后重置面试会话，清空历史对话
          */
         function onPositionChange() {
             if (interviewSessionId) resetInterview();
@@ -585,7 +584,6 @@
             // 首次对话：创建面试会话
             if (!interviewSessionId) {
                 const resume = document.getElementById("resumeText").value.trim();
-                const diff = document.getElementById("difficulty").value;
                 const jobDescription = getJobDescription();
 
                 if (!resume) {
@@ -601,7 +599,6 @@
                         body: JSON.stringify({
                             resume_text: resume,
                             target_position: position,
-                            difficulty: diff,
                             job_description: jobDescription
                         })
                     });
@@ -817,7 +814,7 @@
                 main.className = "history-item-main";
                 const itemTitle = document.createElement("div");
                 itemTitle.className = "history-item-title";
-                itemTitle.textContent = `${item.target_position} · ${item.difficulty}`;
+                itemTitle.textContent = item.target_position;
                 const meta = document.createElement("div");
                 meta.className = "history-item-meta";
                 meta.textContent = `${formatHistoryDate(item.created_at)} · 已回答 ${item.answered_questions} 道题`;
@@ -1100,7 +1097,6 @@
         document.getElementById("resumeFile").addEventListener("change", handleFileUpload);
         document.getElementById("targetPosition").addEventListener("change", onPositionChange);
         document.getElementById("jobDescription").addEventListener("change", onPositionChange);
-        document.getElementById("difficulty").addEventListener("change", onPositionChange);
         document.getElementById("optBtn").addEventListener("click", optimizeResume);
         document.getElementById("genBtn").addEventListener("click", generateFullResume);
         document.getElementById("exportResumeBtn").addEventListener("click", exportResume);

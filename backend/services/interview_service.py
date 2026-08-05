@@ -8,7 +8,7 @@ from utils.llm_util import chat_completion, completion_content
 logger = logging.getLogger(__name__)
 
 INTERVIEW_SYSTEM_PROMPT = """
-你是一名资深专业面试官，负责{target_position}岗位的招聘面试，难度等级：{difficulty}。
+你是一名资深专业面试官，负责{target_position}岗位的招聘面试。
 你风格严厉务实，眼光毒辣，以岗位真实用人标准为核心判断依据，不会顺着简历泛泛提问，会直击候选人能力与岗位要求的差距。
 
 【核心出题规则（优先级从高到低）】
@@ -137,11 +137,10 @@ def _parse_report(content: str, qa_history: list[dict[str, str]]) -> dict:
 
 
 class InterviewSession:
-    def __init__(self, resume_text: str, target_position: str, difficulty: str, user_id: int, job_description: str = ""):
+    def __init__(self, resume_text: str, target_position: str, user_id: int, job_description: str = ""):
         self._lock = Lock()
         self.chat_list = []
         self.target_position = target_position
-        self.difficulty = difficulty
         self.resume_text = resume_text
         self.job_description = job_description
         self.user_id = user_id
@@ -150,7 +149,6 @@ class InterviewSession:
 
         self.system_prompt = INTERVIEW_SYSTEM_PROMPT.format(
             target_position=target_position,
-            difficulty=difficulty,
             resume_text=resume_text,
             job_description=job_description or "未提供岗位JD，请按目标岗位通用要求进行面试。",
         )
@@ -189,7 +187,7 @@ class InterviewSession:
             try:
                 # ===== 首次提问：生成第一道面试题 =====
                 if len(self.chat_list) == 1:
-                    knowledge = self._get_knowledge(f"{self.target_position} {self.job_description[:1000]} {self.difficulty} 基础面试题 常考考点")
+                    knowledge = self._get_knowledge(f"{self.target_position} {self.job_description[:1000]} 基础面试题 常考考点")
                     user_prompt = "请开始第一个问题"
                     if knowledge:
                         user_prompt = knowledge + "\n" + user_prompt
@@ -249,7 +247,6 @@ class InterviewSession:
         qa_history = self.qa_history[-10:]
         report_context = {
             "target_position": self.target_position,
-            "difficulty": self.difficulty,
             "job_description": self.job_description or "未提供岗位JD",
             "resume_text": self.resume_text,
             "qa_history": qa_history,

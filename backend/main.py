@@ -379,7 +379,6 @@ class ResumeOptimizeReq(BaseModel):
 class InterviewStartReq(BaseModel):
     resume_text: str = Field(..., min_length=1, max_length=50_000)
     target_position: str = Field(..., min_length=1, max_length=200)
-    difficulty: str = Field(default="中级", min_length=1, max_length=50)
     job_description: str = Field(default="", max_length=20_000)
 
 
@@ -433,7 +432,6 @@ def _save_interview(session_id: str, session: InterviewSession, user_id: int) ->
         "resume_text": session.resume_text,
         "target_position": session.target_position,
         "job_description": session.job_description,
-        "difficulty": session.difficulty,
         "chat_list": session.chat_list,
         "qa_history": session.qa_history,
         "report": session.report,
@@ -448,7 +446,6 @@ def _load_interview(session_id: str, user_id: int) -> InterviewSession | None:
     session = InterviewSession(
         payload["resume_text"],
         payload["target_position"],
-        payload["difficulty"],
         user_id,
         payload.get("job_description", ""),
     )
@@ -588,18 +585,16 @@ def api_interview_start(req: InterviewStartReq, user: User = Depends(get_current
     """
     接口功能：初始化一场独立模拟面试，生成唯一会话ID
     请求方式：POST
-    入参：简历、岗位、难度
+    入参：简历、岗位和可选岗位JD
     返回：session_id，后续流式对话依靠该ID区分用户会话
     """
     resume_text = _clean_text(req.resume_text, "resume_text")
     target_position = _clean_text(req.target_position, "target_position")
-    difficulty = _clean_text(req.difficulty, "difficulty")
     job_description = _clean_optional_text(req.job_description)
     session_id = _next_session_id("interview")
     session = InterviewSession(
         resume_text=resume_text,
         target_position=target_position,
-        difficulty=difficulty,
         user_id=user.id,
         job_description=job_description,
     )
@@ -700,7 +695,6 @@ def _history_summary(history) -> dict:
         "id": history.id,
         "session_id": history.session_id,
         "target_position": history.target_position,
-        "difficulty": history.difficulty,
         "answered_questions": history.answered_questions,
         "overall_score": history.overall_score,
         "created_at": history.created_at.isoformat() if history.created_at else None,

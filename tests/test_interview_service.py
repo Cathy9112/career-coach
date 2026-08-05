@@ -31,7 +31,6 @@ class InterviewServiceTest(unittest.TestCase):
         return InterviewSession(
             resume_text="Python后端项目经验",
             target_position="后端开发工程师",
-            difficulty="中级",
             user_id=7,
             job_description="熟悉FastAPI和Redis",
         )
