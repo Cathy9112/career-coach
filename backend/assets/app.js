@@ -526,7 +526,7 @@
             interviewCompleted = false;
             document.getElementById("interviewSendBtn").disabled = false;
             document.getElementById("interviewVoiceBtn").disabled = false;
-            document.getElementById("finishInterviewBtn").disabled = true;
+            document.getElementById("finishInterviewBtn").disabled = false;
             document.getElementById("finishInterviewBtn").innerText = "结束面试并评分";
             document.getElementById("interviewInput").value = "";
             document.getElementById("interviewInputBar").hidden = false;
