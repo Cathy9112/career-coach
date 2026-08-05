@@ -8,7 +8,7 @@ from uuid import uuid4
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint, create_engine, update
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -42,6 +42,19 @@ class UserDailyUsage(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     usage_date: Mapped[date] = mapped_column(Date)
     llm_request_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class InterviewHistory(Base):
+    __tablename__ = "interview_histories"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    session_id: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    target_position: Mapped[str] = mapped_column(String(200))
+    difficulty: Mapped[str] = mapped_column(String(50))
+    answered_questions: Mapped[int] = mapped_column(Integer, default=0)
+    overall_score: Mapped[int] = mapped_column(Integer, default=0)
+    report_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
@@ -165,6 +178,74 @@ def delete_knowledge_documents(document_ids: list[str]) -> int:
         deleted = db.query(KnowledgeDocument).filter(KnowledgeDocument.id.in_(document_ids)).delete(synchronize_session=False)
         db.commit()
         return deleted
+
+
+def save_interview_history(user_id: int, session_id: str, session, report: dict) -> InterviewHistory:
+    import json
+
+    with SessionLocal() as db:
+        history = db.query(InterviewHistory).filter(
+            InterviewHistory.user_id == user_id,
+            InterviewHistory.session_id == session_id,
+        ).first()
+        if history is None:
+            history = InterviewHistory(
+                id=str(uuid4()),
+                user_id=user_id,
+                session_id=session_id,
+                target_position=session.target_position,
+                difficulty=session.difficulty,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(history)
+        history.answered_questions = int(report.get("answered_questions", 0))
+        history.overall_score = int(report.get("overall_score", 0))
+        history.report_json = json.dumps(report, ensure_ascii=False)
+        db.commit()
+        db.refresh(history)
+        return history
+
+
+def list_interview_histories(user_id: int) -> list[InterviewHistory]:
+    with SessionLocal() as db:
+        return db.query(InterviewHistory).filter(
+            InterviewHistory.user_id == user_id,
+        ).order_by(InterviewHistory.created_at.desc()).all()
+
+
+def get_interview_history(history_id: str, user_id: int) -> InterviewHistory | None:
+    with SessionLocal() as db:
+        return db.query(InterviewHistory).filter(
+            InterviewHistory.id == history_id,
+            InterviewHistory.user_id == user_id,
+        ).first()
+
+
+def delete_interview_history(history_id: str, user_id: int) -> str | None:
+    with SessionLocal() as db:
+        history = db.query(InterviewHistory).filter(
+            InterviewHistory.id == history_id,
+            InterviewHistory.user_id == user_id,
+        ).first()
+        if history is None:
+            return None
+        session_id = history.session_id
+        db.delete(history)
+        db.commit()
+        return session_id
+
+
+def delete_all_interview_histories(user_id: int) -> list[str]:
+    with SessionLocal() as db:
+        histories = db.query(InterviewHistory).filter(
+            InterviewHistory.user_id == user_id,
+        ).all()
+        session_ids = [history.session_id for history in histories]
+        db.query(InterviewHistory).filter(
+            InterviewHistory.user_id == user_id,
+        ).delete(synchronize_session=False)
+        db.commit()
+        return session_ids
 
 def create_access_token(user: User) -> str:
     now = datetime.now(timezone.utc)

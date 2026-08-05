@@ -316,6 +316,7 @@ class ApiTestCase(unittest.TestCase):
             patch.object(main.session_store, "release_lock") as release_lock,
             patch.object(main, "_load_interview", return_value=session),
             patch.object(main, "_save_interview") as save_interview,
+            patch.object(main, "save_interview_history") as save_history,
             patch.object(main, "enforce_llm_limits") as enforce_limits,
         ):
             response = self.client.post(
@@ -327,6 +328,7 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(response.json()["data"]["report"], report)
         enforce_limits.assert_called_once_with(user)
         save_interview.assert_called_once_with("interview_demo", session, user.id)
+        save_history.assert_called_once_with(user.id, "interview_demo", session, report)
         release_lock.assert_called_once_with(session_lock)
 
     def test_cached_interview_report_does_not_consume_quota(self):
@@ -339,6 +341,7 @@ class ApiTestCase(unittest.TestCase):
             patch.object(main.session_store, "release_lock"),
             patch.object(main, "_load_interview", return_value=session),
             patch.object(main, "_save_interview"),
+            patch.object(main, "save_interview_history"),
             patch.object(main, "enforce_llm_limits") as enforce_limits,
         ):
             response = self.client.post(
@@ -348,6 +351,63 @@ class ApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         enforce_limits.assert_not_called()
+
+    def test_interview_history_list_is_isolated_to_user(self):
+        user = self.authenticate()
+        history = SimpleNamespace(
+            id="history-1",
+            session_id="interview-1",
+            target_position="Python工程师",
+            difficulty="中级",
+            answered_questions=3,
+            overall_score=88,
+            created_at=None,
+        )
+        with patch.object(main, "list_interview_histories", return_value=[history]) as list_histories:
+            response = self.client.get("/api/interview/history")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["items"][0]["overall_score"], 88)
+        list_histories.assert_called_once_with(user.id)
+
+    def test_interview_history_detail_and_delete_remove_redis_session(self):
+        user = self.authenticate()
+        history = SimpleNamespace(
+            id="history-1",
+            session_id="interview-1",
+            target_position="Python工程师",
+            difficulty="中级",
+            answered_questions=1,
+            overall_score=80,
+            created_at=None,
+            report_json='{"overall_score": 80, "answered_questions": 1}',
+        )
+        with patch.object(main, "get_interview_history", return_value=history):
+            detail_response = self.client.get("/api/interview/history/history-1")
+
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(detail_response.json()["data"]["report"]["overall_score"], 80)
+
+        with (
+            patch.object(main, "delete_interview_history", return_value="interview-1"),
+            patch.object(main.session_store, "delete") as delete_session,
+        ):
+            delete_response = self.client.delete("/api/interview/history/history-1")
+
+        self.assertEqual(delete_response.status_code, 200)
+        delete_session.assert_called_once_with("interview", "interview-1")
+
+    def test_delete_all_interview_history_removes_all_redis_sessions(self):
+        self.authenticate()
+        with (
+            patch.object(main, "delete_all_interview_histories", return_value=["interview-1", "interview-2"]),
+            patch.object(main.session_store, "delete") as delete_session,
+        ):
+            response = self.client.delete("/api/interview/history")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["deleted_count"], 2)
+        self.assertEqual(delete_session.call_count, 2)
 
     def test_interview_report_rejects_session_from_another_user(self):
         self.authenticate()

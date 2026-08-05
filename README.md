@@ -158,6 +158,10 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | POST | `/api/interview/start` | 根据简历、目标岗位、可选 JD 和难度创建面试会话 |
 | POST | `/api/interview/stream` | POST SSE 面试流式回答 |
 | POST | `/api/interview/report` | 结束面试并生成总分、五维评分和逐题报告 |
+| GET | `/api/interview/history` | List the current user's interview history |
+| GET | `/api/interview/history/{history_id}` | View a complete saved interview report |
+| DELETE | `/api/interview/history/{history_id}` | Delete one history record and its Redis session |
+| DELETE | `/api/interview/history` | Delete all current-user history and Redis sessions |
 | POST | `/api/chat/start` | 创建 AI 助手会话 |
 | POST | `/api/chat/stream` | POST SSE 助手流式回答 |
 | POST | `/api/knowledge/upload` | 上传个人知识库 |
@@ -168,7 +172,7 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 
 简历生成遵循真实性优先原则：岗位 JD 只用于匹配分析，不能转写成用户已经具备的经历；原简历未提供的时间、数据、技能、证书、项目或个人信息统一使用 `[待补充：具体字段]`，不会使用推测值补齐。
 
-模拟面试完成后可点击“结束面试并评分”，系统只针对已经回答的问题生成总分、专业知识、项目实战、问题分析、表达沟通、岗位匹配五维评分，并提供逐题评价、改进作答方向和下一步行动建议。报告随当前用户的 Redis 面试会话保存，重复查看不会重复消耗模型额度。
+Interview reports are persisted in MySQL per user. Active Q&A remains in Redis with TTL. The history page supports viewing reports, deleting one record, or clearing all records; deletion also removes the related Redis session and never affects another user.
 
 ## 测试
 
@@ -176,7 +180,7 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 python -m unittest discover -s tests -v
 ```
 
-当前测试覆盖注册、登录、退出、JWT Cookie、重复用户、401、简历上传、简历优化、面试会话、聊天会话和知识库用户元数据隔离，共 13 项测试。测试不会连接真实 MySQL、Redis、Chroma，也不会调用 DashScope API。
+Tests cover authentication, resume flows, interview sessions, chat sessions, report persistence, history isolation, single-record deletion, bulk deletion, and knowledge-base isolation. Tests do not connect to real MySQL, Redis, Chroma, or DashScope.
 
 ## 演示说明
 

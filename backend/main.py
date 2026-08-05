@@ -33,6 +33,11 @@ from auth import (
     get_expired_knowledge_document_ids,
     get_daily_llm_request_count,
     get_current_user,
+    delete_all_interview_histories,
+    delete_interview_history,
+    get_interview_history,
+    list_interview_histories,
+    save_interview_history,
     update_knowledge_document_chunk_count,
 )
 from session_store import session_store
@@ -678,6 +683,7 @@ def api_interview_report(
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         _save_interview(req.session_id, session, user.id)
+        save_interview_history(user.id, req.session_id, session, report)
         return {"code": 200, "data": {"report": report}}
     except HTTPException:
         raise
@@ -688,7 +694,58 @@ def api_interview_report(
         session_store.release_lock(session_lock)
 
 
-# ========== 6. 创建通用AI聊天会话接口 ==========
+# ========== 6. 面试历史记录与数据删除接口 ==========
+def _history_summary(history) -> dict:
+    return {
+        "id": history.id,
+        "session_id": history.session_id,
+        "target_position": history.target_position,
+        "difficulty": history.difficulty,
+        "answered_questions": history.answered_questions,
+        "overall_score": history.overall_score,
+        "created_at": history.created_at.isoformat() if history.created_at else None,
+    }
+
+
+@app.get("/api/interview/history")
+def api_interview_history(user: User = Depends(get_current_user)):
+    histories = list_interview_histories(user.id)
+    return {"code": 200, "data": {"items": [_history_summary(item) for item in histories]}}
+
+
+@app.get("/api/interview/history/{history_id}")
+def api_interview_history_detail(history_id: str, user: User = Depends(get_current_user)):
+    import json
+
+    history = get_interview_history(history_id, user.id)
+    if history is None:
+        raise HTTPException(status_code=404, detail="历史记录不存在")
+    try:
+        report = json.loads(history.report_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        logger.exception("Invalid interview history report", exc_info=exc)
+        raise HTTPException(status_code=500, detail="历史报告数据损坏") from exc
+    return {"code": 200, "data": {"history": _history_summary(history), "report": report}}
+
+
+@app.delete("/api/interview/history/{history_id}")
+def api_delete_interview_history(history_id: str, user: User = Depends(get_current_user)):
+    session_id = delete_interview_history(history_id, user.id)
+    if session_id is None:
+        raise HTTPException(status_code=404, detail="历史记录不存在")
+    session_store.delete("interview", session_id)
+    return {"code": 200, "data": {"message": "历史记录已删除"}}
+
+
+@app.delete("/api/interview/history")
+def api_delete_all_interview_history(user: User = Depends(get_current_user)):
+    session_ids = delete_all_interview_histories(user.id)
+    for session_id in session_ids:
+        session_store.delete("interview", session_id)
+    return {"code": 200, "data": {"deleted_count": len(session_ids)}}
+
+
+# ========== 7. 创建通用AI聊天会话接口 ==========
 @app.post("/api/chat/start")
 def api_chat_start(user: User = Depends(get_current_user)):
     """
@@ -701,7 +758,7 @@ def api_chat_start(user: User = Depends(get_current_user)):
     return {"code": 200, "data": {"session_id": session_id}}
 
 
-# ========== 7. 通用AI聊天SSE流式问答接口 ==========
+# ========== 8. 通用AI聊天SSE流式问答接口 ==========
 @app.post("/api/chat/stream")
 def api_chat_stream(
     req: ChatStreamReq,

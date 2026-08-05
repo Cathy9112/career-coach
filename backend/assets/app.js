@@ -247,6 +247,8 @@
         // 面试AI是否正在流式输出标记，防止重复发送
         let interviewIsTyping = false;
         let interviewCompleted = false;
+        let currentInterviewReport = null;
+        let currentInterviewHistoryId = null;
         // AI助手会话ID
         let chatSessionId = "";
         // AI助手是否正在流式输出标记
@@ -524,6 +526,8 @@
             interviewSessionId = "";
             interviewIsTyping = false;
             interviewCompleted = false;
+            currentInterviewReport = null;
+            currentInterviewHistoryId = null;
             document.getElementById("interviewSendBtn").disabled = false;
             document.getElementById("interviewVoiceBtn").disabled = false;
             document.getElementById("finishInterviewBtn").disabled = false;
@@ -532,6 +536,8 @@
             document.getElementById("interviewInputBar").hidden = false;
             document.getElementById("interviewReport").hidden = true;
             document.getElementById("interviewReport").innerHTML = "";
+            document.getElementById("interviewHistoryPanel").hidden = true;
+            document.getElementById("interviewHistoryBtn").innerText = "历史记录";
             // 重置聊天框内容
             const chatBox = document.getElementById("interviewChatBox");
             chatBox.hidden = false;
@@ -653,6 +659,7 @@
         }
 
         function renderInterviewReport(report) {
+            currentInterviewReport = report;
             const panel = document.getElementById("interviewReport");
             panel.innerHTML = "";
 
@@ -727,6 +734,7 @@
 
             document.getElementById("interviewChatBox").hidden = true;
             document.getElementById("interviewInputBar").hidden = true;
+            document.getElementById("interviewHistoryPanel").hidden = true;
             panel.hidden = false;
             document.getElementById("interviewInfo").innerText = `面试完成 · ${report.overall_score} 分`;
         }
@@ -758,6 +766,144 @@
                 document.getElementById("interviewSendBtn").disabled = interviewCompleted;
                 document.getElementById("interviewVoiceBtn").disabled = interviewCompleted;
             }
+        }
+
+        function formatHistoryDate(value) {
+            if (!value) return "时间未知";
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN");
+        }
+
+        function renderInterviewHistory(items) {
+            const panel = document.getElementById("interviewHistoryPanel");
+            panel.innerHTML = "";
+            const toolbar = document.createElement("div");
+            toolbar.className = "history-toolbar";
+            const title = document.createElement("div");
+            title.className = "history-title";
+            title.textContent = "面试历史记录";
+            const clearButton = document.createElement("button");
+            clearButton.className = "btn btn-reset btn-compact";
+            clearButton.textContent = "清空全部";
+            clearButton.disabled = !items.length;
+            clearButton.addEventListener("click", deleteAllInterviewHistory);
+            toolbar.append(title, clearButton);
+            panel.appendChild(toolbar);
+
+            if (!items.length) {
+                const empty = document.createElement("div");
+                empty.className = "history-empty";
+                empty.textContent = "暂无已完成的面试报告。完成一次面试并评分后，报告会自动保存到这里。";
+                panel.appendChild(empty);
+                return;
+            }
+
+            items.forEach(item => {
+                const row = document.createElement("div");
+                row.className = "history-item";
+                const main = document.createElement("div");
+                main.className = "history-item-main";
+                const itemTitle = document.createElement("div");
+                itemTitle.className = "history-item-title";
+                itemTitle.textContent = `${item.target_position} · ${item.difficulty}`;
+                const meta = document.createElement("div");
+                meta.className = "history-item-meta";
+                meta.textContent = `${formatHistoryDate(item.created_at)} · 已回答 ${item.answered_questions} 道题`;
+                main.append(itemTitle, meta);
+                const score = document.createElement("div");
+                score.className = "history-item-score";
+                score.textContent = `${item.overall_score} 分`;
+                const actions = document.createElement("div");
+                actions.className = "history-item-actions";
+                const viewButton = document.createElement("button");
+                viewButton.className = "btn";
+                viewButton.textContent = "查看报告";
+                viewButton.addEventListener("click", () => viewInterviewHistory(item.id, item.session_id));
+                const deleteButton = document.createElement("button");
+                deleteButton.className = "btn btn-reset";
+                deleteButton.textContent = "删除";
+                deleteButton.addEventListener("click", () => deleteInterviewHistory(item.id));
+                actions.append(viewButton, deleteButton);
+                row.append(main, score, actions);
+                panel.appendChild(row);
+            });
+        }
+
+        async function loadInterviewHistory() {
+            const panel = document.getElementById("interviewHistoryPanel");
+            panel.hidden = false;
+            panel.innerHTML = '<div class="history-empty">正在加载历史记录...</div>';
+            try {
+                const data = await request("/api/interview/history");
+                renderInterviewHistory(data.data.items || []);
+                document.getElementById("interviewChatBox").hidden = true;
+                document.getElementById("interviewInputBar").hidden = true;
+                document.getElementById("interviewReport").hidden = true;
+                document.getElementById("interviewHistoryBtn").innerText = "返回面试";
+                document.getElementById("interviewInfo").innerText = "面试历史记录";
+            } catch (error) {
+                panel.innerHTML = "";
+                const errorMessage = document.createElement("div");
+                errorMessage.className = "history-empty";
+                errorMessage.textContent = error.message;
+                panel.appendChild(errorMessage);
+            }
+        }
+
+        async function viewInterviewHistory(historyId, sessionId) {
+            try {
+                const data = await request(`/api/interview/history/${historyId}`);
+                interviewSessionId = sessionId || "";
+                currentInterviewHistoryId = historyId;
+                interviewCompleted = true;
+                renderInterviewReport(data.data.report);
+                document.getElementById("finishInterviewBtn").disabled = true;
+                document.getElementById("finishInterviewBtn").innerText = "评分已完成";
+            } catch (error) {
+                alert("历史报告加载失败：" + error.message);
+            }
+        }
+
+        async function deleteInterviewHistory(historyId) {
+            if (!window.confirm("删除后将同时清理该面试的问答和评分报告，确定继续吗？")) return;
+            try {
+                await request(`/api/interview/history/${historyId}`, { method: "DELETE" });
+                if (currentInterviewHistoryId === historyId) {
+                    resetInterview();
+                }
+                await loadInterviewHistory();
+            } catch (error) {
+                alert("删除失败：" + error.message);
+            }
+        }
+
+        async function deleteAllInterviewHistory() {
+            if (!window.confirm("将删除当前账号的全部面试历史和评分报告，确定继续吗？")) return;
+            try {
+                await request("/api/interview/history", { method: "DELETE" });
+                resetInterview();
+                await loadInterviewHistory();
+            } catch (error) {
+                alert("清空失败：" + error.message);
+            }
+        }
+
+        function toggleInterviewHistory() {
+            const panel = document.getElementById("interviewHistoryPanel");
+            if (!panel.hidden) {
+                panel.hidden = true;
+                document.getElementById("interviewHistoryBtn").innerText = "历史记录";
+                if (currentInterviewReport) {
+                    document.getElementById("interviewReport").hidden = false;
+                    document.getElementById("interviewInfo").innerText = `面试完成 · ${currentInterviewReport.overall_score} 分`;
+                } else {
+                    document.getElementById("interviewChatBox").hidden = false;
+                    document.getElementById("interviewInputBar").hidden = false;
+                    updateInterviewInfo();
+                }
+                return;
+            }
+            loadInterviewHistory();
         }
 
         function getDownloadFilename(response) {
@@ -947,6 +1093,7 @@
         document.getElementById("genBtn").addEventListener("click", generateFullResume);
         document.getElementById("exportResumeBtn").addEventListener("click", exportResume);
         document.getElementById("finishInterviewBtn").addEventListener("click", finishInterview);
+        document.getElementById("interviewHistoryBtn").addEventListener("click", toggleInterviewHistory);
         document.getElementById("resetInterviewBtn").addEventListener("click", resetInterview);
         document.getElementById("interviewVoiceBtn").addEventListener("click", toggleInterviewVoice);
         document.getElementById("interviewSendBtn").addEventListener("click", sendInterviewMessage);
