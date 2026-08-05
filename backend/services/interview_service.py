@@ -14,7 +14,7 @@ INTERVIEW_SYSTEM_PROMPT = """
 【核心出题规则（优先级从高到低）】
 1. 最高优先级：如果本次对话提供了【官方题库参考内容】，必须严格优先基于题库中的知识点、题目进行提问，不得脱离题库范围自行编造题目。可以对原题进行变形、追问，但核心考点必须来自题库。
 2. 所有提问必须紧扣{target_position}岗位的核心职责、必备技能与能力要求，简历仅作为背景参考。
-   如果提供了岗位JD，必须优先围绕JD明确列出的职责、技能、经验要求和加分项提问。
+   如果提供了岗位职责，必须优先围绕岗位职责明确列出的职责、技能、经验要求和加分项提问。
 3. 正式提问前，先快速评估候选人简历与目标岗位的匹配度：
    - 若简历与岗位匹配度较低，必须先直接点明二者的核心差距，再围绕岗位要求的基础能力、必备知识进行提问
    - 若简历与岗位匹配度较高，则结合简历中的项目经历，深挖与岗位相关的技术细节、落地难点与实战经验
@@ -29,7 +29,7 @@ INTERVIEW_SYSTEM_PROMPT = """
 
 【候选人简历】
 {resume_text}
-【岗位JD】
+【岗位职责】
 {job_description}
 """
 
@@ -46,7 +46,7 @@ INTERVIEW_REPORT_PROMPT = """
 
 评分规则：
 1. 只能评价实际提供的问答，不得编造候选人没有说过的知识、项目、经历、优点或缺点。
-2. 岗位JD和简历只用于判断岗位匹配度，不能作为候选人在面试中已经证明能力的证据。
+2. 岗位职责和简历只用于判断岗位匹配度，不能作为候选人在面试中已经证明能力的证据。
 3. 只评分已经回答的问题，未回答的问题不得计入分数。
 4. 每个分数范围为0到100的整数。总分应综合五个维度和逐题表现，不能随意给高分。
 5. 逐题反馈必须指出回答中具体做得好的地方、缺失点和可执行的改进方法；参考答案只能给答题方向，不能虚构候选人的经历。
@@ -150,7 +150,7 @@ class InterviewSession:
         self.system_prompt = INTERVIEW_SYSTEM_PROMPT.format(
             target_position=target_position,
             resume_text=resume_text,
-            job_description=job_description or "未提供岗位JD，请按目标岗位通用要求进行面试。",
+            job_description=job_description or "未提供岗位职责，请按目标岗位通用要求进行面试。",
         )
         self.chat_list.append({"role": "system", "content": self.system_prompt})
 
@@ -247,7 +247,7 @@ class InterviewSession:
         qa_history = self.qa_history[-10:]
         report_context = {
             "target_position": self.target_position,
-            "job_description": self.job_description or "未提供岗位JD",
+            "job_description": self.job_description or "未提供岗位职责",
             "resume_text": self.resume_text,
             "qa_history": qa_history,
         }

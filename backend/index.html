@@ -26,7 +26,8 @@
             <img class="logo-img" src="images/title.jpg" alt="Career Coach">
 
             <div class="nav">
-                <div class="nav-item active" data-page="resume">简历优化</div>
+                <div class="nav-item active" data-page="home">首页</div>
+                <div class="nav-item" data-page="resume">简历优化</div>
                 <div class="nav-item" data-page="interview">面试模拟</div>
                 <div class="nav-item" data-page="knowledge">岗位职责</div>
                 <div class="nav-item" data-page="assistant">AI助手</div>
@@ -40,8 +41,50 @@
         <!-- 右侧主内容区 -->
         <div class="main-content">
 
+            <!-- 首页 -->
+            <div class="page home-page active" id="homePage">
+                <img class="page-deco home-deco" src="images/assistant.jpg" alt="">
+                <section class="home-hero" aria-labelledby="homeTitle">
+                    <div class="home-eyebrow">CAREER COACH</div>
+                    <h1 class="home-title" id="homeTitle">四步完成求职准备</h1>
+                    <p class="home-subtitle">从简历整理到针对性模拟面试，按照下面的步骤即可完成一次完整的求职训练。</p>
+                    <button class="btn home-start-btn" id="startUsingBtn" type="button">开始使用</button>
+                </section>
+
+                <section class="guide-grid" aria-label="使用步骤">
+                    <article class="guide-card" data-guide-page="resume" data-guide-target="resumeFile" role="button" tabindex="0">
+                        <div class="guide-step">第一步</div>
+                        <h2>上传简历</h2>
+                        <p>上传 TXT、DOCX、PDF 简历，或直接粘贴简历文本。</p>
+                        <span class="guide-status" id="guideResumeStatus">待完成</span>
+                    </article>
+                    <article class="guide-card" data-guide-page="resume" data-guide-target="targetPosition" role="button" tabindex="0">
+                        <div class="guide-step">第二步</div>
+                        <h2>填写目标岗位</h2>
+                        <p>填写本次求职或模拟面试对应的岗位名称。</p>
+                        <span class="guide-status" id="guidePositionStatus">待完成</span>
+                    </article>
+                    <article class="guide-card" data-guide-page="knowledge" data-guide-target="knowledgeText" role="button" tabindex="0">
+                        <div class="guide-step">第三步</div>
+                        <h2>粘贴或上传岗位职责</h2>
+                        <p>提供招聘信息中的职责、任职要求和技能关键词。</p>
+                        <span class="guide-status" id="guideDutiesStatus">待完成</span>
+                    </article>
+                    <article class="guide-card" data-guide-page="interview" data-guide-target="interviewInput" role="button" tabindex="0">
+                        <div class="guide-step">第四步</div>
+                        <h2>开始 AI 模拟面试</h2>
+                        <p>系统将结合简历、目标岗位和岗位职责进行提问。</p>
+                        <span class="guide-status guide-status-ready" id="guideInterviewStatus">准备中</span>
+                    </article>
+                </section>
+
+                <div class="home-concept-note">
+                    <strong>统一说明：</strong>网站统一使用“岗位职责”这一名称，指招聘信息中的岗位职责、任职要求、技能要求和加分项。简历优化和模拟面试都会使用同一份岗位职责内容。
+                </div>
+            </div>
+
             <!-- 简历优化页面 -->
-            <div class="page resume-page active" id="resumePage">
+            <div class="page resume-page" id="resumePage">
                 <img class="page-deco deco-top-right" src="images/resume.jpg" alt="">
                 <div class="page-title">简历优化</div>
                 <div class="resume-layout">
@@ -61,8 +104,8 @@
                     </div>
 
                     <div>
-                        <label class="section-label">岗位 JD（推荐填写）</label>
-                        <textarea class="job-description-input" id="jobDescription" placeholder="请粘贴招聘信息中的岗位职责、任职要求和加分项；不填写时将按岗位通用要求分析。"></textarea>
+                        <label class="section-label">岗位职责（推荐填写）</label>
+                        <textarea class="job-description-input" id="jobDescription" placeholder="请粘贴招聘信息中的岗位职责、任职要求、技能要求和加分项；此内容会与岗位职责页面自动同步。"></textarea>
                     </div>
 
                     <div class="resume-action">
@@ -130,9 +173,9 @@
             <!-- 知识库页面 -->
             <div class="page" id="knowledgePage">
                 <img class="page-deco deco-top-right" src="images/knowledge.jpg" alt="">
-                <div class="page-title">岗位职责上传</div>
+                <div class="page-title">岗位职责</div>
                 <div class="knowledge-intro">
-                    上传或粘贴目标岗位的职责、任职要求和技能关键词。模拟面试将结合这些内容与您的简历，生成更贴近目标岗位的针对性问题。
+                    粘贴或上传招聘信息中的岗位职责、任职要求、技能要求和加分项。保存后，简历优化和模拟面试都会使用这份内容。
                 </div>
                 <div class="resume-layout knowledge-layout">
                     <div>

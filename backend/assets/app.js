@@ -6,6 +6,8 @@
         let assistantAbortController = null;
         let uploadedResumeFile = null;
         let generatedResumeText = "";
+        let jobDutiesSaved = false;
+        let syncingJobDuties = false;
 
         // ===================== 通用请求封装函数 =====================
         /**
@@ -275,22 +277,69 @@
         // ===================== 页面切换逻辑 =====================
         /**
          * 切换左侧导航对应页面
-         * @param {string} page 页面标识 resume/interview/knowledge/assistant
+         * @param {string} page 页面标识 home/resume/interview/knowledge/assistant
          */
         function switchPage(page) {
-            // 切换页面前关闭所有长连接与录音
             closeAllSSE();
-            const pages = ['resume', 'interview', 'knowledge', 'assistant'];
-            // 导航激活样式切换
-            document.querySelectorAll(".nav-item").forEach((item, index) => {
-                item.classList.remove("active");
-                if (page === pages[index]) item.classList.add("active");
+            document.querySelectorAll(".nav-item[data-page]").forEach((item) => {
+                item.classList.toggle("active", item.dataset.page === page);
             });
-            // 隐藏所有页面，展示目标页面
             document.querySelectorAll(".page, .chat-page").forEach(el => el.classList.remove("active"));
-            document.getElementById(page + "Page").classList.add("active");
-            // 切换到面试页时更新岗位标题
+            const targetPage = document.getElementById(page + "Page");
+            if (!targetPage) return;
+            targetPage.classList.add("active");
+            if (page === "home") updateGuideProgress();
             if (page === "interview") updateInterviewInfo();
+        }
+
+        function guideStepState() {
+            const resumeReady = Boolean(document.getElementById("resumeText").value.trim() || uploadedResumeFile);
+            const positionReady = Boolean(document.getElementById("targetPosition").value.trim());
+            const dutiesReady = Boolean(getJobDescription() || jobDutiesSaved || document.getElementById("knowledgeFile").files[0]);
+            return { resumeReady, positionReady, dutiesReady };
+        }
+
+        function setGuideStatus(elementId, completed, readyText = "已完成") {
+            const element = document.getElementById(elementId);
+            element.textContent = completed ? readyText : "待完成";
+            element.classList.toggle("completed", completed);
+        }
+
+        function updateGuideProgress() {
+            const state = guideStepState();
+            setGuideStatus("guideResumeStatus", state.resumeReady);
+            setGuideStatus("guidePositionStatus", state.positionReady);
+            setGuideStatus("guideDutiesStatus", state.dutiesReady);
+            const interviewReady = state.resumeReady && state.positionReady && state.dutiesReady;
+            const interviewStatus = document.getElementById("guideInterviewStatus");
+            interviewStatus.textContent = interviewReady ? "可以开始" : "准备中";
+            interviewStatus.classList.toggle("completed", interviewReady);
+        }
+
+        function focusGuideTarget(page, targetId) {
+            switchPage(page);
+            window.requestAnimationFrame(() => {
+                const target = document.getElementById(targetId);
+                if (!target) return;
+                target.scrollIntoView({ behavior: "smooth", block: "center" });
+                target.focus({ preventScroll: true });
+            });
+        }
+
+        function startUsing() {
+            const state = guideStepState();
+            if (!state.resumeReady) return focusGuideTarget("resume", "resumeFile");
+            if (!state.positionReady) return focusGuideTarget("resume", "targetPosition");
+            if (!state.dutiesReady) return focusGuideTarget("knowledge", "knowledgeText");
+            focusGuideTarget("interview", "interviewInput");
+        }
+
+        function syncJobDutyInputs(sourceId, targetId) {
+            if (syncingJobDuties) return;
+            syncingJobDuties = true;
+            document.getElementById(targetId).value = document.getElementById(sourceId).value;
+            syncingJobDuties = false;
+            updateGuideProgress();
         }
 
         /**
@@ -413,8 +462,11 @@
                     body: formData
                 });
                 document.getElementById("knowledgeResult").innerText = data.data.message;
+                jobDutiesSaved = true;
+                if (pastedText) document.getElementById("jobDescription").value = pastedText;
                 fileInput.value = "";
                 textInput.value = "";
+                updateGuideProgress();
             } catch (error) {
                 alert("岗位职责保存失败：" + error.message);
             } finally {
@@ -433,7 +485,9 @@
         }
 
         function getJobDescription() {
-            return document.getElementById("jobDescription").value.trim();
+            const resumePageValue = document.getElementById("jobDescription").value.trim();
+            const dutiesPageValue = document.getElementById("knowledgeText").value.trim();
+            return resumePageValue || dutiesPageValue;
         }
 
         /**
@@ -1091,12 +1145,32 @@
             item.addEventListener("click", () => switchPage(item.dataset.page));
         });
         document.getElementById("logoutBtn").addEventListener("click", logout);
+        document.getElementById("startUsingBtn").addEventListener("click", startUsing);
+        document.querySelectorAll(".guide-card[data-guide-page]").forEach((card) => {
+            const openStep = () => focusGuideTarget(card.dataset.guidePage, card.dataset.guideTarget);
+            card.addEventListener("click", openStep);
+            card.addEventListener("keydown", (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openStep();
+                }
+            });
+        });
         document.getElementById("resumeFile").addEventListener("click", (event) => {
             event.currentTarget.value = "";
         });
-        document.getElementById("resumeFile").addEventListener("change", handleFileUpload);
+        document.getElementById("resumeFile").addEventListener("change", (event) => {
+            handleFileUpload(event);
+            updateGuideProgress();
+        });
+        document.getElementById("resumeText").addEventListener("input", updateGuideProgress);
+        document.getElementById("targetPosition").addEventListener("input", updateGuideProgress);
         document.getElementById("targetPosition").addEventListener("change", onPositionChange);
+        document.getElementById("jobDescription").addEventListener("input", () => syncJobDutyInputs("jobDescription", "knowledgeText"));
         document.getElementById("jobDescription").addEventListener("change", onPositionChange);
+        document.getElementById("knowledgeText").addEventListener("input", () => syncJobDutyInputs("knowledgeText", "jobDescription"));
+        document.getElementById("knowledgeText").addEventListener("change", onPositionChange);
+        document.getElementById("knowledgeFile").addEventListener("change", updateGuideProgress);
         document.getElementById("optBtn").addEventListener("click", optimizeResume);
         document.getElementById("genBtn").addEventListener("click", generateFullResume);
         document.getElementById("exportResumeBtn").addEventListener("click", exportResume);
@@ -1120,6 +1194,8 @@
         });
 
         const requestedPage = new URLSearchParams(window.location.search).get("page");
-        if (["resume", "interview", "knowledge", "assistant"].includes(requestedPage)) {
+        if (["home", "resume", "interview", "knowledge", "assistant"].includes(requestedPage)) {
             switchPage(requestedPage);
+        } else {
+            updateGuideProgress();
         }

@@ -131,6 +131,19 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "authentication required")
 
+    def test_homepage_contains_four_step_guide_and_unified_job_duties(self):
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('id="homePage"', response.text)
+        self.assertIn('id="startUsingBtn"', response.text)
+        self.assertIn("第一步", response.text)
+        self.assertIn("第二步", response.text)
+        self.assertIn("第三步", response.text)
+        self.assertIn("第四步", response.text)
+        self.assertIn("岗位职责（推荐填写）", response.text)
+        self.assertNotIn("岗位 JD", response.text)
+
     def test_current_user_endpoint(self):
         user = self.authenticate()
         response = self.client.get("/api/auth/me")

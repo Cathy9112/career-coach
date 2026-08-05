@@ -35,7 +35,7 @@ class ResumeServicePromptTest(unittest.TestCase):
         prompt = chat_completion.call_args.args[0][0]["content"]
         self.assertEqual(result, "优化建议")
         self.assertIn("只有【用户简历】中明确出现的内容", prompt)
-        self.assertIn("岗位JD", prompt)
+        self.assertIn("岗位职责", prompt)
         self.assertIn("绝不能转写成候选人已经具备", prompt)
         self.assertIn("[待补充：具体可验证数据]", prompt)
         self.assertIn("若不足3处，不得为凑数编造经历", prompt)
@@ -59,7 +59,7 @@ class ResumeServicePromptTest(unittest.TestCase):
         self.assertIn("[待补充：该模块的真实信息]", prompt)
         self.assertIn("用户明确写了“无”时才能写“无”", prompt)
         self.assertIn("输出前必须逐句进行事实核对", prompt)
-        self.assertIn("未提供岗位JD", prompt)
+        self.assertIn("未提供岗位职责", prompt)
         self.assertIn("姓名：张三", prompt)
 
 

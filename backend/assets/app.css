@@ -166,6 +166,126 @@
             width: 330px;
         }
 
+        /* ========== 首页引导 ========== */
+        .home-page {
+            padding-right: 24px;
+        }
+
+        .home-deco {
+            bottom: 8px;
+            right: -10px;
+            width: 300px;
+            opacity: 0.12;
+        }
+
+        .home-hero {
+            max-width: 760px;
+            padding: 26px 0 32px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .home-eyebrow {
+            color: #a57d39;
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            margin-bottom: 12px;
+        }
+
+        .home-title {
+            color: #222;
+            font-size: clamp(30px, 5vw, 48px);
+            font-weight: 500;
+            line-height: 1.18;
+            margin: 0 0 14px;
+        }
+
+        .home-subtitle {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.8;
+            margin: 0 0 24px;
+            max-width: 650px;
+        }
+
+        .home-start-btn {
+            min-width: 150px;
+        }
+
+        .guide-grid {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            max-width: 820px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .guide-card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e6e0d7;
+            border-radius: 14px;
+            cursor: pointer;
+            min-height: 168px;
+            padding: 22px;
+            position: relative;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .guide-card:hover,
+        .guide-card:focus-within {
+            border-color: #cdb98e;
+            box-shadow: 0 12px 30px rgba(75, 58, 30, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .guide-step {
+            color: #a57d39;
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+
+        .guide-card h2 {
+            color: #222;
+            font-size: 19px;
+            font-weight: 500;
+            margin: 0 0 10px;
+        }
+
+        .guide-card p {
+            color: #777;
+            font-size: 14px;
+            line-height: 1.7;
+            margin: 0 0 24px;
+        }
+
+        .guide-status {
+            bottom: 18px;
+            color: #8b8173;
+            font-size: 12px;
+            position: absolute;
+            right: 20px;
+        }
+
+        .guide-status.completed {
+            color: #2c7a55;
+            font-weight: 600;
+        }
+
+        .home-concept-note {
+            background: #f8f5ef;
+            border-radius: 10px;
+            color: #666;
+            font-size: 13px;
+            line-height: 1.8;
+            margin-top: 18px;
+            max-width: 820px;
+            padding: 14px 18px;
+            position: relative;
+            z-index: 2;
+        }
+
         /* ========== 简历优化页面 ========== */
         .resume-layout {
             display: flex;
@@ -722,6 +842,21 @@
 
         /* ========== 移动端响应式适配 ========== */
         @media (max-width: 900px) {
+            .home-page {
+                padding-right: 0;
+            }
+            .home-hero {
+                padding-top: 8px;
+            }
+            .guide-grid {
+                grid-template-columns: 1fr;
+            }
+            .guide-card {
+                min-height: 150px;
+            }
+            .home-deco {
+                display: none;
+            }
             .container {
                 flex-direction: column;
                 max-width: 100%;

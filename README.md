@@ -4,8 +4,8 @@ Career Coach 是一个面向求职者的简历优化与 AI 模拟面试平台。
 
 ## 项目亮点
 
-- **JD 定向简历优化**：支持 TXT、DOCX、PDF 简历解析，结合目标岗位和招聘 JD 生成优化建议与完整简历。
-- **JD 定向模拟面试**：按目标岗位和招聘 JD 创建独立面试会话，使用 POST + SSE 流式返回回答。
+- **岗位职责定向简历优化**：支持 TXT、DOCX、PDF 简历解析，结合目标岗位和招聘岗位职责 生成优化建议与完整简历。
+- **岗位职责定向模拟面试**：按目标岗位和招聘岗位职责 创建独立面试会话，使用 POST + SSE 流式返回回答。
 - **AI 求职助手**：提供独立聊天会话，支持 Redis 共享会话和并发更新锁。
 - **个人知识库**：上传 TXT 面试题库，使用 DashScope `text-embedding-v4` 生成向量，并按 `user_id` 隔离检索结果。
 - **用户认证**：注册、登录、退出、HttpOnly Cookie、JWT 和 401 前端跳转。
@@ -152,10 +152,10 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | GET | `/health/live` | 存活探针 |
 | GET | `/health/ready` | MySQL、Redis、Chroma 就绪探针 |
 | POST | `/api/resume/upload` | 上传并解析简历 |
-| POST | `/api/resume/optimize` | 根据简历、目标岗位和可选 JD 生成优化建议 |
-| POST | `/api/resume/generate` | 根据简历、目标岗位和可选 JD 生成完整简历 |
+| POST | `/api/resume/optimize` | 根据简历、目标岗位和可选岗位职责 生成优化建议 |
+| POST | `/api/resume/generate` | 根据简历、目标岗位和可选岗位职责 生成完整简历 |
 | POST | `/api/resume/export` | 按上传源文件类型导出优化后的简历 |
-| POST | `/api/interview/start` | 根据简历、目标岗位和可选 JD 创建面试会话 |
+| POST | `/api/interview/start` | 根据简历、目标岗位和可选岗位职责 创建面试会话 |
 | POST | `/api/interview/stream` | POST SSE 面试流式回答 |
 | POST | `/api/interview/report` | 结束面试并生成总分、五维评分和逐题报告 |
 | GET | `/api/interview/history` | List the current user's interview history |
@@ -168,11 +168,11 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | GET | `/api/knowledge/query` | 隔离检索当前用户的岗位职责内容 |
 | GET | `/api/usage` | 查看每日调用额度 |
 
-岗位职责页面支持直接粘贴文本，或上传 TXT、DOCX、PDF 文件。内容按当前登录用户隔离写入向量库，模拟面试会结合岗位职责、岗位名称、可选 JD 与当前简历生成问题。
+岗位职责页面支持直接粘贴文本，或上传 TXT、DOCX、PDF 文件。内容按当前登录用户隔离写入向量库，模拟面试会结合岗位职责、岗位名称、可选岗位职责 与当前简历生成问题。
 
 简历优化页面按“上传/填写简历 → 生成优化建议 → 生成完整简历 → 导出”顺序使用。导出时，TXT 保持 TXT 类型并使用带 BOM 的 UTF-8 编码，Windows 记事本和常见编辑器可正确识别中文；DOCX 基于原文档替换正文并尽量保留样式、页面设置和页眉页脚；PDF 由 ReportLab 生成并嵌入中文字体子集，同时保持源 PDF 的首个页面尺寸，因此不会依赖访问者电脑中的中文字体，但复杂图形、图片和原 PDF 的精确布局无法保证完全不变。未上传源文件时默认导出带 BOM 的 UTF-8 TXT。
 
-简历生成遵循真实性优先原则：岗位 JD 只用于匹配分析，不能转写成用户已经具备的经历；原简历未提供的时间、数据、技能、证书、项目或个人信息统一使用 `[待补充：具体字段]`，不会使用推测值补齐。
+简历生成遵循真实性优先原则：岗位职责只用于匹配分析，不能转写成用户已经具备的经历；原简历未提供的时间、数据、技能、证书、项目或个人信息统一使用 `[待补充：具体字段]`，不会使用推测值补齐。
 
 Interview reports are persisted in MySQL per user. Active Q&A remains in Redis with TTL. The history page supports viewing reports, deleting one record, or clearing all records; deletion also removes the related Redis session and never affects another user.
 

@@ -585,7 +585,7 @@ def api_interview_start(req: InterviewStartReq, user: User = Depends(get_current
     """
     接口功能：初始化一场独立模拟面试，生成唯一会话ID
     请求方式：POST
-    入参：简历、岗位和可选岗位JD
+    入参：简历、岗位和可选岗位职责
     返回：session_id，后续流式对话依靠该ID区分用户会话
     """
     resume_text = _clean_text(req.resume_text, "resume_text")
