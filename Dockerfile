@@ -3,9 +3,26 @@ FROM ${PYTHON_IMAGE}
 
 ARG PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 ARG PIP_TIMEOUT=120
+ARG APT_MIRROR=https://mirrors.aliyun.com
 
 WORKDIR /app
-RUN apt-get update \
+RUN if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i \
+            -e "s|http://deb.debian.org|${APT_MIRROR}|g" \
+            -e "s|https://deb.debian.org|${APT_MIRROR}|g" \
+            /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && if [ -f /etc/apt/sources.list ]; then \
+        sed -i \
+            -e "s|http://deb.debian.org|${APT_MIRROR}|g" \
+            -e "s|https://deb.debian.org|${APT_MIRROR}|g" \
+            /etc/apt/sources.list; \
+    fi \
+    && apt-get \
+        -o Acquire::Retries=5 \
+        -o Acquire::http::Timeout=30 \
+        -o Acquire::https::Timeout=30 \
+        update \
     && apt-get install -y --no-install-recommends fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 COPY backend/requirements.lock ./requirements.lock
