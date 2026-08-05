@@ -822,6 +822,51 @@
             font-size: 13px;
         }
 
+        .knowledge-intro {
+            max-width: 760px;
+            margin: -10px 0 24px;
+            padding: 14px 18px;
+            border-left: 4px solid #333;
+            background: rgba(255, 255, 255, 0.72);
+            color: #555;
+            font-size: 14px;
+            line-height: 1.8;
+            position: relative;
+            z-index: 2;
+        }
+
+        .knowledge-layout {
+            max-width: 760px;
+        }
+
+        .knowledge-textarea {
+            min-height: 210px;
+            resize: vertical;
+        }
+
+        .knowledge-divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: #999;
+            font-size: 13px;
+        }
+
+        .knowledge-divider::before,
+        .knowledge-divider::after {
+            content: "";
+            height: 1px;
+            flex: 1;
+            background: #ddd;
+        }
+
+        .field-note {
+            margin-top: 8px;
+            color: #777;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
         .knowledge-upload-action {
             max-width: 180px;
         }

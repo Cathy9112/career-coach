@@ -28,7 +28,7 @@
             <div class="nav">
                 <div class="nav-item active" data-page="resume">简历优化</div>
                 <div class="nav-item" data-page="interview">面试模拟</div>
-                <div class="nav-item" data-page="knowledge">知识库</div>
+                <div class="nav-item" data-page="knowledge">岗位职责</div>
                 <div class="nav-item" data-page="assistant">AI助手</div>
             </div>
             <div class="user-panel" id="userPanel" hidden>
@@ -140,19 +140,28 @@
             <!-- 知识库页面 -->
             <div class="page" id="knowledgePage">
                 <img class="page-deco deco-top-right" src="images/knowledge.jpg" alt="">
-                <div class="page-title">知识库</div>
-                <div class="resume-layout">
+                <div class="page-title">岗位职责上传</div>
+                <div class="knowledge-intro">
+                    上传或粘贴目标岗位的职责、任职要求和技能关键词。模拟面试将结合这些内容与您的简历，生成更贴近目标岗位的针对性问题。
+                </div>
+                <div class="resume-layout knowledge-layout">
                     <div>
-                        <label class="section-label">上传面经题库（仅支持 .txt 格式）</label>
-                        <input type="file" id="knowledgeFile" accept=".txt">
+                        <label class="section-label" for="knowledgeText">直接粘贴岗位职责</label>
+                        <textarea id="knowledgeText" class="knowledge-textarea" placeholder="例如：负责后端接口开发与维护；熟悉 Python、FastAPI、MySQL、Redis；具备系统设计和性能优化经验……"></textarea>
+                    </div>
+                    <div class="knowledge-divider"><span>或</span></div>
+                    <div>
+                        <label class="section-label" for="knowledgeFile">上传岗位职责文件</label>
+                        <input type="file" id="knowledgeFile" accept=".txt,.docx,.pdf">
+                        <div class="field-note">支持 TXT、DOCX、PDF，单个文件不超过系统设置的上传限制。</div>
                     </div>
                     <div class="knowledge-upload-action">
-                        <button class="btn" id="uploadBtn">上传入库</button>
+                        <button class="btn" id="uploadBtn">保存岗位职责</button>
                     </div>
-                    <div class="result-box knowledge-result" id="knowledgeResult"></div>
+                    <div class="result-box knowledge-result" id="knowledgeResult" aria-live="polite"></div>
                     <div class="tip-text">
-                        支持上传面试真题、知识点总结等 txt 文件，系统会自动切分存入向量库。<br>
-                        面试时会自动检索相关内容，优先基于题库出题。知识库持久化保存，重启服务不丢失。
+                        可以只粘贴、只上传文件，也可以同时提供两种内容；同时提供时系统会合并后保存。<br>
+                        内容仅写入当前账号的岗位职责向量库，模拟面试会结合岗位职责和当前简历进行检索与提问。
                     </div>
                 </div>
             </div>

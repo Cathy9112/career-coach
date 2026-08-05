@@ -81,7 +81,7 @@ def _decode_text(raw_bytes: bytes) -> str:
     raise HTTPException(status_code=400, detail="文件编码不支持，请另存为 UTF-8 格式后重试")
 
 
-def parse_resume_file(file: UploadFile) -> str:
+def parse_text_document(file: UploadFile) -> str:
     """Extract text from a supported resume upload."""
     filename = (file.filename or "").lower()
     if not filename:
@@ -818,7 +818,7 @@ def api_resume_upload(file: UploadFile = File(...), _: User = Depends(get_curren
     请求方式：POST 表单FormData文件上传,提交二进制文件
     """
     try:
-        content = parse_resume_file(file)
+        content = parse_text_document(file)
         return {"code": 200, "data": {"content": content}}
     except HTTPException:
         raise
@@ -875,28 +875,41 @@ def api_resume_export(
 
 # ========== 9. 面试知识库文档上传入库接口 ==========
 @app.post("/api/knowledge/upload")
-def api_knowledge_upload(file: UploadFile = File(...), user: User = Depends(get_current_user)):
-    """
-    接口功能：上传txt面试题库文档，自动切片、向量化存入本地Chroma向量库
-    请求方式：POST 文件上传
-    限制：仅支持txt纯文本（题库专用，区别于简历多格式解析）
-    """
+def api_knowledge_upload(
+    file: UploadFile | None = File(None),
+    content: str = Form(""),
+    user: User = Depends(get_current_user),
+):
+    """Store pasted or uploaded job responsibilities in the current user's vector collection."""
     document_id = None
     try:
         from utils.vector_util import KNOWLEDGE_COLLECTION_NAME, add_documents
-        filename = file.filename or ""
-        if not filename.lower().endswith(".txt"):
-            raise HTTPException(status_code=400, detail="仅支持 txt 格式文件")
 
-        content = _decode_text(_read_upload(file))
-        if not content.strip():
-            raise HTTPException(status_code=400, detail="文件内容为空")
+        content_parts: list[str] = []
+        filename = ""
+        if file is not None and file.filename:
+            filename = file.filename
+            content_parts.append(parse_text_document(file).strip())
 
-        document = create_knowledge_document(user.id, filename)
+        pasted_content = content.strip()
+        if pasted_content:
+            if len(pasted_content.encode("utf-8")) > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail="粘贴内容大小超过限制")
+            content_parts.append(pasted_content)
+
+        if not content_parts:
+            raise HTTPException(status_code=400, detail="请粘贴岗位职责或上传文件")
+
+        combined_content = "\n\n".join(part for part in content_parts if part)
+        if not combined_content:
+            raise HTTPException(status_code=400, detail="岗位职责内容不能为空")
+
+        source_name = filename or "pasted-job-duties.txt"
+        document = create_knowledge_document(user.id, source_name)
         document_id = document.id
         chunk_count = add_documents(
             KNOWLEDGE_COLLECTION_NAME,
-            [content],
+            [combined_content],
             metadata={"user_id": str(user.id), "document_id": document.id},
         )
         update_knowledge_document_chunk_count(document.id, user.id, chunk_count)
@@ -904,22 +917,21 @@ def api_knowledge_upload(file: UploadFile = File(...), user: User = Depends(get_
         return {
             "code": 200,
             "data": {
-                "filename": filename,
+                "filename": source_name,
                 "document_id": document.id,
                 "chunk_count": chunk_count,
-                "message": f"入库成功，共切分为 {chunk_count} 个知识块"
-            }
+                "message": f"岗位职责保存成功，共生成 {chunk_count} 个内容片段。模拟面试将结合这些内容和您的简历进行提问。",
+            },
         }
     except HTTPException:
         raise
     except Exception as exc:
         if document_id:
             delete_knowledge_document(document_id, user.id)
-        logger.exception("Knowledge base upload failed")
-        raise HTTPException(status_code=503, detail="知识库服务暂时不可用") from exc
+        logger.exception("Job duties upload failed")
+        raise HTTPException(status_code=503, detail="岗位职责保存失败，请稍后重试") from exc
 
 
-# ========== 10. 向量知识库检索测试接口 ==========
 @app.get("/api/knowledge/query")
 def api_knowledge_query(
     query: str = Query(..., min_length=1, max_length=500),

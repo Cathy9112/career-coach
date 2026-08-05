@@ -450,5 +450,111 @@ class ApiTestCase(unittest.TestCase):
         update_count.assert_called_once_with("document-id", user.id, 2)
 
 
+    def test_knowledge_upload_accepts_pasted_job_duties(self):
+        user = self.authenticate()
+        vector_module = types.ModuleType("utils.vector_util")
+        vector_module.KNOWLEDGE_COLLECTION_NAME = "test_collection"
+        vector_module.add_documents = Mock(return_value=1)
+        document = SimpleNamespace(id="pasted-document-id")
+
+        with (
+            patch.dict(sys.modules, {"utils.vector_util": vector_module}),
+            patch.object(main, "create_knowledge_document", return_value=document) as create_document,
+            patch.object(main, "update_knowledge_document_chunk_count") as update_count,
+        ):
+            response = self.client.post(
+                "/api/knowledge/upload",
+                data={"content": "负责 Python 后端开发，熟悉 FastAPI、MySQL 和 Redis。"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        create_document.assert_called_once_with(user.id, "pasted-job-duties.txt")
+        vector_module.add_documents.assert_called_once_with(
+            "test_collection",
+            ["负责 Python 后端开发，熟悉 FastAPI、MySQL 和 Redis。"],
+            metadata={"user_id": str(user.id), "document_id": "pasted-document-id"},
+        )
+        update_count.assert_called_once_with("pasted-document-id", user.id, 1)
+
+    def test_knowledge_upload_accepts_docx_job_duties(self):
+        from docx import Document
+
+        user = self.authenticate()
+        vector_module = types.ModuleType("utils.vector_util")
+        vector_module.KNOWLEDGE_COLLECTION_NAME = "test_collection"
+        vector_module.add_documents = Mock(return_value=1)
+        document = SimpleNamespace(id="docx-document-id")
+        source = BytesIO()
+        source_document = Document()
+        source_document.add_paragraph("Develop backend APIs with Python and FastAPI.")
+        source_document.save(source)
+
+        with (
+            patch.dict(sys.modules, {"utils.vector_util": vector_module}),
+            patch.object(main, "create_knowledge_document", return_value=document),
+            patch.object(main, "update_knowledge_document_chunk_count"),
+        ):
+            response = self.client.post(
+                "/api/knowledge/upload",
+                files={
+                    "file": (
+                        "job-duties.docx",
+                        source.getvalue(),
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    )
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        vector_module.add_documents.assert_called_once_with(
+            "test_collection",
+            ["Develop backend APIs with Python and FastAPI."],
+            metadata={"user_id": str(user.id), "document_id": "docx-document-id"},
+        )
+
+    def test_knowledge_upload_accepts_pdf_job_duties(self):
+        from reportlab.pdfgen import canvas
+
+        user = self.authenticate()
+        vector_module = types.ModuleType("utils.vector_util")
+        vector_module.KNOWLEDGE_COLLECTION_NAME = "test_collection"
+        vector_module.add_documents = Mock(return_value=1)
+        document = SimpleNamespace(id="pdf-document-id")
+        source = BytesIO()
+        pdf = canvas.Canvas(source)
+        pdf.drawString(72, 720, "Analyze requirements and design backend services.")
+        pdf.save()
+
+        with (
+            patch.dict(sys.modules, {"utils.vector_util": vector_module}),
+            patch.object(main, "create_knowledge_document", return_value=document),
+            patch.object(main, "update_knowledge_document_chunk_count"),
+        ):
+            response = self.client.post(
+                "/api/knowledge/upload",
+                files={"file": ("job-duties.pdf", source.getvalue(), "application/pdf")},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        stored_content = vector_module.add_documents.call_args.args[1][0]
+        self.assertIn("Analyze requirements", stored_content)
+        self.assertEqual(
+            vector_module.add_documents.call_args.kwargs["metadata"],
+            {"user_id": str(user.id), "document_id": "pdf-document-id"},
+        )
+
+    def test_knowledge_upload_requires_text_or_file(self):
+        self.authenticate()
+        vector_module = types.ModuleType("utils.vector_util")
+        vector_module.KNOWLEDGE_COLLECTION_NAME = "test_collection"
+        vector_module.add_documents = Mock()
+
+        with patch.dict(sys.modules, {"utils.vector_util": vector_module}):
+            response = self.client.post("/api/knowledge/upload", data={"content": ""})
+
+        self.assertEqual(response.status_code, 400)
+        vector_module.add_documents.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -385,30 +385,42 @@
          */
         async function uploadKnowledge() {
             const fileInput = document.getElementById("knowledgeFile");
+            const textInput = document.getElementById("knowledgeText");
             const file = fileInput.files[0];
-            if (!file) return alert("请先选择文件");
+            const pastedText = textInput.value.trim();
+
+            if (!file && !pastedText) {
+                return alert("请粘贴岗位职责或选择 TXT、DOCX、PDF 文件");
+            }
+
+            if (file) {
+                const filename = file.name.toLowerCase();
+                if (![".txt", ".docx", ".pdf"].some(extension => filename.endsWith(extension))) {
+                    return alert("仅支持 TXT、DOCX、PDF 文件");
+                }
+            }
 
             const btn = document.getElementById("uploadBtn");
             btn.disabled = true;
-            btn.innerText = "上传中...";
+            btn.innerText = "正在保存...";
 
             const formData = new FormData();
-            formData.append("file", file);
+            if (file) formData.append("file", file);
+            if (pastedText) formData.append("content", pastedText);
 
             try {
-                // 调用知识库上传接口
                 const data = await request("/api/knowledge/upload", {
                     method: "POST",
                     body: formData
                 });
-                // 展示后端返回的入库成功信息
                 document.getElementById("knowledgeResult").innerText = data.data.message;
-            } catch (e) {
-                alert("上传失败：" + e.message);
+                fileInput.value = "";
+                textInput.value = "";
+            } catch (error) {
+                alert("岗位职责保存失败：" + error.message);
             } finally {
-                // 无论成功失败恢复按钮状态
                 btn.disabled = false;
-                btn.innerText = "上传入库";
+                btn.innerText = "保存岗位职责";
             }
         }
 

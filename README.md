@@ -164,9 +164,11 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | DELETE | `/api/interview/history` | Delete all current-user history and Redis sessions |
 | POST | `/api/chat/start` | 创建 AI 助手会话 |
 | POST | `/api/chat/stream` | POST SSE 助手流式回答 |
-| POST | `/api/knowledge/upload` | 上传个人知识库 |
-| GET | `/api/knowledge/query` | 隔离检索当前用户知识库 |
+| POST | `/api/knowledge/upload` | 粘贴或上传岗位职责，支持 TXT、DOCX、PDF |
+| GET | `/api/knowledge/query` | 隔离检索当前用户的岗位职责内容 |
 | GET | `/api/usage` | 查看每日调用额度 |
+
+岗位职责页面支持直接粘贴文本，或上传 TXT、DOCX、PDF 文件。内容按当前登录用户隔离写入向量库，模拟面试会结合岗位职责、岗位名称、可选 JD 与当前简历生成问题。
 
 简历优化页面按“上传/填写简历 → 生成优化建议 → 生成完整简历 → 导出”顺序使用。导出时，TXT 保持 TXT 类型并使用带 BOM 的 UTF-8 编码，Windows 记事本和常见编辑器可正确识别中文；DOCX 基于原文档替换正文并尽量保留样式、页面设置和页眉页脚；PDF 由 ReportLab 生成并嵌入中文字体子集，同时保持源 PDF 的首个页面尺寸，因此不会依赖访问者电脑中的中文字体，但复杂图形、图片和原 PDF 的精确布局无法保证完全不变。未上传源文件时默认导出带 BOM 的 UTF-8 TXT。
 
