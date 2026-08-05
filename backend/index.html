@@ -107,7 +107,10 @@
             <div class="chat-page" id="interviewPage">
                 <div class="chat-header">
                     <div class="chat-info" id="interviewInfo">准备就绪 · 中级难度</div>
-                    <button class="btn btn-reset btn-compact" id="resetInterviewBtn">重置对话</button>
+                    <div class="chat-header-actions">
+                        <button class="btn btn-compact" id="finishInterviewBtn" disabled>结束面试并评分</button>
+                        <button class="btn btn-reset btn-compact" id="resetInterviewBtn">重置对话</button>
+                    </div>
                 </div>
 
                 <div class="chat-box" id="interviewChatBox">
@@ -117,7 +120,7 @@
                     </div>
                 </div>
 
-                <div class="input-bar">
+                <div class="input-bar" id="interviewInputBar">
                     <input type="text" id="interviewInput" placeholder="输入你的回答...">
                     <button class="btn voice-btn" id="interviewVoiceBtn" title="语音输入">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
@@ -126,6 +129,8 @@
                     </button>
                     <button class="btn" id="interviewSendBtn">发送</button>
                 </div>
+
+                <div class="interview-report" id="interviewReport" hidden></div>
 
                 <img class="page-deco deco-bottom-right" src="images/assistant.jpg" alt="">
             </div>

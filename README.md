@@ -157,6 +157,7 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 | POST | `/api/resume/export` | 按上传源文件类型导出优化后的简历 |
 | POST | `/api/interview/start` | 根据简历、目标岗位、可选 JD 和难度创建面试会话 |
 | POST | `/api/interview/stream` | POST SSE 面试流式回答 |
+| POST | `/api/interview/report` | 结束面试并生成总分、五维评分和逐题报告 |
 | POST | `/api/chat/start` | 创建 AI 助手会话 |
 | POST | `/api/chat/stream` | POST SSE 助手流式回答 |
 | POST | `/api/knowledge/upload` | 上传个人知识库 |
@@ -166,6 +167,8 @@ KNOWLEDGE_COLLECTION_NAME=interview_knowledge_base_dashscope_v1
 简历优化页面按“上传/填写简历 → 生成优化建议 → 生成完整简历 → 导出”顺序使用。导出时，TXT 保持 TXT 类型并使用带 BOM 的 UTF-8 编码，Windows 记事本和常见编辑器可正确识别中文；DOCX 基于原文档替换正文并尽量保留样式、页面设置和页眉页脚；PDF 由 ReportLab 生成并嵌入中文字体子集，同时保持源 PDF 的首个页面尺寸，因此不会依赖访问者电脑中的中文字体，但复杂图形、图片和原 PDF 的精确布局无法保证完全不变。未上传源文件时默认导出带 BOM 的 UTF-8 TXT。
 
 简历生成遵循真实性优先原则：岗位 JD 只用于匹配分析，不能转写成用户已经具备的经历；原简历未提供的时间、数据、技能、证书、项目或个人信息统一使用 `[待补充：具体字段]`，不会使用推测值补齐。
+
+模拟面试完成后可点击“结束面试并评分”，系统只针对已经回答的问题生成总分、专业知识、项目实战、问题分析、表达沟通、岗位匹配五维评分，并提供逐题评价、改进作答方向和下一步行动建议。报告随当前用户的 Redis 面试会话保存，重复查看不会重复消耗模型额度。
 
 ## 测试
 

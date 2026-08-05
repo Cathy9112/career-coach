@@ -377,6 +377,11 @@
             color: #777;
         }
 
+        .chat-header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
         .chat-box {
             flex: 1;
             overflow-y: auto;
@@ -526,6 +531,110 @@
             background: #bbb;
         }
 
+        .interview-report {
+            flex: 1;
+            max-width: 900px;
+            overflow-y: auto;
+            padding-right: 12px;
+            color: #444;
+        }
+
+        .report-score-card {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 22px;
+            background: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            margin-bottom: 22px;
+        }
+
+        .report-score {
+            min-width: 100px;
+            font-size: 42px;
+            line-height: 1;
+            color: #333;
+        }
+
+        .report-score small {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .report-summary {
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        .report-dimensions {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(100px, 1fr));
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .report-dimension {
+            padding: 14px 10px;
+            text-align: center;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+
+        .report-dimension-name {
+            color: #777;
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        .report-dimension-score {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .report-section {
+            margin-bottom: 26px;
+        }
+
+        .report-section-title {
+            font-size: 17px;
+            color: #333;
+            margin-bottom: 12px;
+        }
+
+        .report-list {
+            margin: 0;
+            padding-left: 22px;
+            line-height: 1.9;
+        }
+
+        .question-feedback-card {
+            padding: 18px;
+            margin-bottom: 14px;
+            background: #fafafa;
+            border-radius: 8px;
+            border-left: 3px solid #ddd;
+        }
+
+        .question-feedback-title {
+            font-size: 15px;
+            color: #333;
+            line-height: 1.7;
+            margin-bottom: 10px;
+        }
+
+        .question-feedback-score {
+            color: #777;
+            margin-bottom: 8px;
+        }
+
+        .question-feedback-text {
+            line-height: 1.8;
+            white-space: pre-wrap;
+            margin-top: 8px;
+        }
+
         .auth-overlay { align-items: center; background: rgba(255,255,255,.92); display: none; inset: 0; justify-content: center; padding: 24px; position: fixed; z-index: 100; }
         .auth-overlay.visible { display: flex; }
         .auth-card { background: #fff; border: 1px solid #e7e0d5; border-radius: 16px; box-shadow: 0 20px 50px rgba(91,69,37,.14); max-width: 390px; padding: 36px; width: 100%; }
@@ -596,6 +705,29 @@
 
             .btn-export {
                 width: 100%;
+            }
+
+            .chat-header {
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .chat-header-actions {
+                flex-direction: column;
+                width: 150px;
+            }
+
+            .chat-header-actions .btn {
+                width: 100%;
+            }
+
+            .report-score-card {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .report-dimensions {
+                grid-template-columns: repeat(2, minmax(100px, 1fr));
             }
         }
 

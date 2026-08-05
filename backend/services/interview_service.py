@@ -1,7 +1,8 @@
+import json
 import logging
 from threading import Lock
 
-from utils.llm_util import chat_completion
+from utils.llm_util import chat_completion, completion_content
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,108 @@ INTERVIEW_SYSTEM_PROMPT = """
 {job_description}
 """
 
+REPORT_DIMENSIONS = (
+    "专业知识",
+    "项目实战",
+    "问题分析",
+    "表达沟通",
+    "岗位匹配",
+)
+
+INTERVIEW_REPORT_PROMPT = """
+你是一名严格、公正的招聘面试评估专家。请根据候选人的真实问答记录生成面试评分报告。
+
+评分规则：
+1. 只能评价实际提供的问答，不得编造候选人没有说过的知识、项目、经历、优点或缺点。
+2. 岗位JD和简历只用于判断岗位匹配度，不能作为候选人在面试中已经证明能力的证据。
+3. 只评分已经回答的问题，未回答的问题不得计入分数。
+4. 每个分数范围为0到100的整数。总分应综合五个维度和逐题表现，不能随意给高分。
+5. 逐题反馈必须指出回答中具体做得好的地方、缺失点和可执行的改进方法；参考答案只能给答题方向，不能虚构候选人的经历。
+6. 只输出一个合法JSON对象，禁止Markdown代码块、开场白和收尾说明。
+
+必须严格使用以下JSON结构：
+{
+  "overall_score": 0,
+  "dimension_scores": {
+    "专业知识": 0,
+    "项目实战": 0,
+    "问题分析": 0,
+    "表达沟通": 0,
+    "岗位匹配": 0
+  },
+  "summary": "总体评价",
+  "strengths": ["优势1"],
+  "improvements": ["改进项1"],
+  "question_feedback": [
+    {
+      "question": "面试问题",
+      "score": 0,
+      "feedback": "针对实际回答的评价",
+      "better_answer": "更好的作答结构和应覆盖的知识点"
+    }
+  ],
+  "next_steps": ["下一步行动1"]
+}
+"""
+
+
+def _score(value) -> int:
+    try:
+        return max(0, min(100, int(round(float(value)))))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _text_list(value, limit: int = 6) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value[:limit] if str(item).strip()]
+
+
+def _parse_report(content: str, qa_history: list[dict[str, str]]) -> dict:
+    cleaned = content.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.removeprefix("```json").removeprefix("```")
+        cleaned = cleaned.removesuffix("```").strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start < 0 or end <= start:
+        raise RuntimeError("面试报告格式无效")
+    try:
+        payload = json.loads(cleaned[start:end + 1])
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("面试报告不是合法JSON") from exc
+
+    raw_dimensions = payload.get("dimension_scores", {})
+    dimensions = {
+        name: _score(raw_dimensions.get(name, 0))
+        for name in REPORT_DIMENSIONS
+    }
+    question_feedback = []
+    raw_feedback = payload.get("question_feedback", [])
+    if not isinstance(raw_feedback, list):
+        raw_feedback = []
+    for index, qa in enumerate(qa_history):
+        item = raw_feedback[index] if index < len(raw_feedback) and isinstance(raw_feedback[index], dict) else {}
+        question_feedback.append({
+            "question": qa["question"],
+            "answer": qa["answer"],
+            "score": _score(item.get("score", 0)),
+            "feedback": str(item.get("feedback", "暂未生成有效评价")).strip(),
+            "better_answer": str(item.get("better_answer", "请结合问题补充完整答题思路")).strip(),
+        })
+
+    return {
+        "overall_score": _score(payload.get("overall_score", 0)),
+        "dimension_scores": dimensions,
+        "summary": str(payload.get("summary", "暂未生成总体评价")).strip(),
+        "strengths": _text_list(payload.get("strengths")),
+        "improvements": _text_list(payload.get("improvements")),
+        "question_feedback": question_feedback,
+        "next_steps": _text_list(payload.get("next_steps")),
+        "answered_questions": len(qa_history),
+    }
+
 
 class InterviewSession:
     def __init__(self, resume_text: str, target_position: str, difficulty: str, user_id: int, job_description: str = ""):
@@ -42,6 +145,8 @@ class InterviewSession:
         self.resume_text = resume_text
         self.job_description = job_description
         self.user_id = user_id
+        self.qa_history = []
+        self.report = None
 
         self.system_prompt = INTERVIEW_SYSTEM_PROMPT.format(
             target_position=target_position,
@@ -80,6 +185,7 @@ class InterviewSession:
         """
         with self._lock:
             original_chat = self.chat_list.copy()
+            original_qa_history = self.qa_history.copy()
             try:
                 # ===== 首次提问：生成第一道面试题 =====
                 if len(self.chat_list) == 1:
@@ -91,6 +197,19 @@ class InterviewSession:
 
                 # ===== 后续追问：结合回答与题库出题 =====
                 else:
+                    previous_question = next(
+                        (
+                            item["content"]
+                            for item in reversed(self.chat_list)
+                            if item.get("role") == "assistant"
+                        ),
+                        "",
+                    )
+                    if previous_question and user_answer.strip():
+                        self.qa_history.append({
+                            "question": previous_question,
+                            "answer": user_answer.strip(),
+                        })
                     knowledge_query = f"{self.target_position} {self.job_description[:1000]} {user_answer} 进阶追问 下一个考点"
                     knowledge = self._get_knowledge(knowledge_query)
                     final_input = user_answer
@@ -118,4 +237,30 @@ class InterviewSession:
             except BaseException:
                 # Roll back both ordinary failures and client disconnects.
                 self.chat_list = original_chat
+                self.qa_history = original_qa_history
                 raise
+
+    def generate_report(self) -> dict:
+        if self.report is not None:
+            return self.report
+        if not self.qa_history:
+            raise ValueError("请至少回答一道面试题后再生成报告")
+
+        qa_history = self.qa_history[-10:]
+        report_context = {
+            "target_position": self.target_position,
+            "difficulty": self.difficulty,
+            "job_description": self.job_description or "未提供岗位JD",
+            "resume_text": self.resume_text,
+            "qa_history": qa_history,
+        }
+        messages = [
+            {"role": "system", "content": INTERVIEW_REPORT_PROMPT},
+            {
+                "role": "user",
+                "content": json.dumps(report_context, ensure_ascii=False),
+            },
+        ]
+        response = chat_completion(messages, stream=False)
+        self.report = _parse_report(completion_content(response), qa_history)
+        return self.report

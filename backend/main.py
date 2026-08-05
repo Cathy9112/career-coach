@@ -383,6 +383,10 @@ class InterviewStreamReq(BaseModel):
     answer: str = Field(default="", max_length=20_000)
 
 
+class InterviewReportReq(BaseModel):
+    session_id: str = Field(..., min_length=1, max_length=100)
+
+
 class ChatStreamReq(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
     message: str = Field(..., min_length=1, max_length=20_000)
@@ -426,6 +430,8 @@ def _save_interview(session_id: str, session: InterviewSession, user_id: int) ->
         "job_description": session.job_description,
         "difficulty": session.difficulty,
         "chat_list": session.chat_list,
+        "qa_history": session.qa_history,
+        "report": session.report,
         "user_id": user_id,
     })
 
@@ -442,6 +448,8 @@ def _load_interview(session_id: str, user_id: int) -> InterviewSession | None:
         payload.get("job_description", ""),
     )
     session.chat_list = payload.get("chat_list", session.chat_list)
+    session.qa_history = payload.get("qa_history", [])
+    session.report = payload.get("report")
     return session
 
 
@@ -649,7 +657,38 @@ def api_interview_stream(
     )
 
 
-# ========== 5. 创建通用AI聊天会话接口 ==========
+# ========== 5. 生成面试评分和最终报告接口 ==========
+@app.post("/api/interview/report")
+def api_interview_report(
+    req: InterviewReportReq,
+    user: User = Depends(get_current_user),
+):
+    session_lock = session_store.acquire_lock("interview", req.session_id)
+    if session_lock is None:
+        raise HTTPException(status_code=409, detail="会话正在处理中，请稍后生成报告")
+
+    try:
+        session = _load_interview(req.session_id, user.id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="会话不存在")
+        if session.report is None:
+            enforce_llm_limits(user)
+        try:
+            report = session.generate_report()
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _save_interview(req.session_id, session, user.id)
+        return {"code": 200, "data": {"report": report}}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Interview report generation failed")
+        raise HTTPException(status_code=500, detail="面试报告生成失败，请稍后重试") from exc
+    finally:
+        session_store.release_lock(session_lock)
+
+
+# ========== 6. 创建通用AI聊天会话接口 ==========
 @app.post("/api/chat/start")
 def api_chat_start(user: User = Depends(get_current_user)):
     """
@@ -662,7 +701,7 @@ def api_chat_start(user: User = Depends(get_current_user)):
     return {"code": 200, "data": {"session_id": session_id}}
 
 
-# ========== 6. 通用AI聊天SSE流式问答接口 ==========
+# ========== 7. 通用AI聊天SSE流式问答接口 ==========
 @app.post("/api/chat/stream")
 def api_chat_stream(
     req: ChatStreamReq,

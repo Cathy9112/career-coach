@@ -246,6 +246,7 @@
         let interviewSessionId = "";
         // 面试AI是否正在流式输出标记，防止重复发送
         let interviewIsTyping = false;
+        let interviewCompleted = false;
         // AI助手会话ID
         let chatSessionId = "";
         // AI助手是否正在流式输出标记
@@ -522,15 +523,25 @@
             }
             interviewSessionId = "";
             interviewIsTyping = false;
+            interviewCompleted = false;
             document.getElementById("interviewSendBtn").disabled = false;
+            document.getElementById("interviewVoiceBtn").disabled = false;
+            document.getElementById("finishInterviewBtn").disabled = true;
+            document.getElementById("finishInterviewBtn").innerText = "结束面试并评分";
+            document.getElementById("interviewInput").value = "";
+            document.getElementById("interviewInputBar").hidden = false;
+            document.getElementById("interviewReport").hidden = true;
+            document.getElementById("interviewReport").innerHTML = "";
             // 重置聊天框内容
             const chatBox = document.getElementById("interviewChatBox");
+            chatBox.hidden = false;
             chatBox.innerHTML = `
                 <div class="msg-item assistant">
                     <div class="role-tag">系统</div>
                     <div class="msg-content">对话已重置，请发送第一条消息重新开始面试。</div>
                 </div>
             `;
+            updateInterviewInfo();
         }
 
         /**
@@ -538,7 +549,7 @@
          */
         async function sendInterviewMessage() {
             // 正在输出时禁止重复发送
-            if (interviewIsTyping) return;
+            if (interviewIsTyping || interviewCompleted) return;
             stopRecording();
             const input = document.getElementById("interviewInput");
             const text = input.value.trim();
@@ -577,6 +588,7 @@
                         })
                     });
                     interviewSessionId = data.data.session_id;
+                    document.getElementById("finishInterviewBtn").disabled = false;
                     // 建立流式连接获取第一个面试问题
                     streamInterviewQuestion("");
                 } catch (e) {
@@ -618,7 +630,133 @@
                 if (interviewAbortController === controller) interviewAbortController = null;
                 contentDom.classList.remove("typing-cursor");
                 interviewIsTyping = false;
-                document.getElementById("interviewSendBtn").disabled = false;
+                document.getElementById("interviewSendBtn").disabled = interviewCompleted;
+            }
+        }
+
+        function createReportSection(title, items) {
+            if (!Array.isArray(items) || items.length === 0) return null;
+            const section = document.createElement("section");
+            section.className = "report-section";
+            const heading = document.createElement("div");
+            heading.className = "report-section-title";
+            heading.textContent = title;
+            const list = document.createElement("ul");
+            list.className = "report-list";
+            items.forEach(item => {
+                const listItem = document.createElement("li");
+                listItem.textContent = item;
+                list.appendChild(listItem);
+            });
+            section.append(heading, list);
+            return section;
+        }
+
+        function renderInterviewReport(report) {
+            const panel = document.getElementById("interviewReport");
+            panel.innerHTML = "";
+
+            const scoreCard = document.createElement("div");
+            scoreCard.className = "report-score-card";
+            const score = document.createElement("div");
+            score.className = "report-score";
+            score.textContent = report.overall_score;
+            const scoreUnit = document.createElement("small");
+            scoreUnit.textContent = " / 100";
+            score.appendChild(scoreUnit);
+            const summary = document.createElement("div");
+            summary.className = "report-summary";
+            summary.textContent = `已回答 ${report.answered_questions} 道题\n${report.summary}`;
+            scoreCard.append(score, summary);
+            panel.appendChild(scoreCard);
+
+            const dimensions = document.createElement("div");
+            dimensions.className = "report-dimensions";
+            Object.entries(report.dimension_scores || {}).forEach(([name, value]) => {
+                const item = document.createElement("div");
+                item.className = "report-dimension";
+                const label = document.createElement("div");
+                label.className = "report-dimension-name";
+                label.textContent = name;
+                const dimensionScore = document.createElement("div");
+                dimensionScore.className = "report-dimension-score";
+                dimensionScore.textContent = value;
+                item.append(label, dimensionScore);
+                dimensions.appendChild(item);
+            });
+            panel.appendChild(dimensions);
+
+            [
+                createReportSection("主要优势", report.strengths),
+                createReportSection("需要改进", report.improvements),
+            ].filter(Boolean).forEach(section => panel.appendChild(section));
+
+            if (Array.isArray(report.question_feedback) && report.question_feedback.length) {
+                const section = document.createElement("section");
+                section.className = "report-section";
+                const heading = document.createElement("div");
+                heading.className = "report-section-title";
+                heading.textContent = "逐题评分";
+                section.appendChild(heading);
+                report.question_feedback.forEach((feedback, index) => {
+                    const card = document.createElement("div");
+                    card.className = "question-feedback-card";
+                    const title = document.createElement("div");
+                    title.className = "question-feedback-title";
+                    title.textContent = `第 ${index + 1} 题：${feedback.question}`;
+                    const questionScore = document.createElement("div");
+                    questionScore.className = "question-feedback-score";
+                    questionScore.textContent = `得分：${feedback.score} / 100`;
+                    const answer = document.createElement("div");
+                    answer.className = "question-feedback-text";
+                    answer.textContent = `你的回答：${feedback.answer}`;
+                    const review = document.createElement("div");
+                    review.className = "question-feedback-text";
+                    review.textContent = `评价：${feedback.feedback}`;
+                    const betterAnswer = document.createElement("div");
+                    betterAnswer.className = "question-feedback-text";
+                    betterAnswer.textContent = `改进方向：${feedback.better_answer}`;
+                    card.append(title, questionScore, answer, review, betterAnswer);
+                    section.appendChild(card);
+                });
+                panel.appendChild(section);
+            }
+
+            const nextSteps = createReportSection("下一步行动", report.next_steps);
+            if (nextSteps) panel.appendChild(nextSteps);
+
+            document.getElementById("interviewChatBox").hidden = true;
+            document.getElementById("interviewInputBar").hidden = true;
+            panel.hidden = false;
+            document.getElementById("interviewInfo").innerText = `面试完成 · ${report.overall_score} 分`;
+        }
+
+        async function finishInterview() {
+            if (!interviewSessionId) return alert("请先开始面试");
+            if (interviewIsTyping) return alert("请等待当前问题生成完成");
+
+            const btn = document.getElementById("finishInterviewBtn");
+            interviewIsTyping = true;
+            btn.disabled = true;
+            btn.innerText = "评分中...";
+            document.getElementById("interviewSendBtn").disabled = true;
+            document.getElementById("interviewVoiceBtn").disabled = true;
+            try {
+                const data = await request("/api/interview/report", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ session_id: interviewSessionId })
+                });
+                interviewCompleted = true;
+                renderInterviewReport(data.data.report);
+            } catch (error) {
+                alert("生成报告失败：" + error.message);
+            } finally {
+                interviewIsTyping = false;
+                btn.disabled = interviewCompleted;
+                btn.innerText = interviewCompleted ? "评分已完成" : "结束面试并评分";
+                document.getElementById("interviewSendBtn").disabled = interviewCompleted;
+                document.getElementById("interviewVoiceBtn").disabled = interviewCompleted;
             }
         }
 
@@ -808,6 +946,7 @@
         document.getElementById("optBtn").addEventListener("click", optimizeResume);
         document.getElementById("genBtn").addEventListener("click", generateFullResume);
         document.getElementById("exportResumeBtn").addEventListener("click", exportResume);
+        document.getElementById("finishInterviewBtn").addEventListener("click", finishInterview);
         document.getElementById("resetInterviewBtn").addEventListener("click", resetInterview);
         document.getElementById("interviewVoiceBtn").addEventListener("click", toggleInterviewVoice);
         document.getElementById("interviewSendBtn").addEventListener("click", sendInterviewMessage);

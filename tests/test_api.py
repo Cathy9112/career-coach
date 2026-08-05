@@ -305,6 +305,64 @@ class ApiTestCase(unittest.TestCase):
         self.assertTrue(chat_id.startswith("chat_"))
         self.assertEqual(save_chat.call_args.args[2], user.id)
 
+    def test_interview_report_is_generated_and_saved_for_user(self):
+        user = self.authenticate()
+        report = {"overall_score": 82, "answered_questions": 2}
+        session = SimpleNamespace(report=None, generate_report=Mock(return_value=report))
+        session_lock = object()
+
+        with (
+            patch.object(main.session_store, "acquire_lock", return_value=session_lock),
+            patch.object(main.session_store, "release_lock") as release_lock,
+            patch.object(main, "_load_interview", return_value=session),
+            patch.object(main, "_save_interview") as save_interview,
+            patch.object(main, "enforce_llm_limits") as enforce_limits,
+        ):
+            response = self.client.post(
+                "/api/interview/report",
+                json={"session_id": "interview_demo"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["report"], report)
+        enforce_limits.assert_called_once_with(user)
+        save_interview.assert_called_once_with("interview_demo", session, user.id)
+        release_lock.assert_called_once_with(session_lock)
+
+    def test_cached_interview_report_does_not_consume_quota(self):
+        self.authenticate()
+        report = {"overall_score": 90, "answered_questions": 3}
+        session = SimpleNamespace(report=report, generate_report=Mock(return_value=report))
+
+        with (
+            patch.object(main.session_store, "acquire_lock", return_value=object()),
+            patch.object(main.session_store, "release_lock"),
+            patch.object(main, "_load_interview", return_value=session),
+            patch.object(main, "_save_interview"),
+            patch.object(main, "enforce_llm_limits") as enforce_limits,
+        ):
+            response = self.client.post(
+                "/api/interview/report",
+                json={"session_id": "interview_cached"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        enforce_limits.assert_not_called()
+
+    def test_interview_report_rejects_session_from_another_user(self):
+        self.authenticate()
+        with (
+            patch.object(main.session_store, "acquire_lock", return_value=object()),
+            patch.object(main.session_store, "release_lock"),
+            patch.object(main, "_load_interview", return_value=None),
+        ):
+            response = self.client.post(
+                "/api/interview/report",
+                json={"session_id": "interview_other_user"},
+            )
+
+        self.assertEqual(response.status_code, 404)
+
     def test_knowledge_upload_preserves_user_metadata(self):
         user = self.authenticate()
         vector_module = types.ModuleType("utils.vector_util")
