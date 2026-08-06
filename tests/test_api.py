@@ -143,6 +143,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertIn("第四步", response.text)
         self.assertIn("岗位职责（推荐填写）", response.text)
         self.assertNotIn("岗位 JD", response.text)
+        self.assertNotIn("deco-bottom-right", response.text)
+        self.assertNotIn("home-deco", response.text)
 
     def test_current_user_endpoint(self):
         user = self.authenticate()

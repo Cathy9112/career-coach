@@ -160,22 +160,9 @@
             width: 195px;
         }
 
-        .deco-bottom-right {
-            bottom: 12px;
-            right: -8px;
-            width: 330px;
-        }
-
         /* ========== 首页引导 ========== */
         .home-page {
             padding-right: 24px;
-        }
-
-        .home-deco {
-            bottom: 8px;
-            right: -10px;
-            width: 300px;
-            opacity: 0.12;
         }
 
         .home-hero {
@@ -854,9 +841,6 @@
             .guide-card {
                 min-height: 150px;
             }
-            .home-deco {
-                display: none;
-            }
             .container {
                 flex-direction: column;
                 max-width: 100%;
@@ -890,10 +874,6 @@
             .main-content {
                 padding: 24px;
                 margin-left: 0;
-            }
-            .deco-bottom-right {
-                width: 210px;
-                right: -4px;
             }
             .deco-top-right {
                 width: 150px;
