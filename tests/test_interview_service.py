@@ -57,6 +57,39 @@ class InterviewServiceTest(unittest.TestCase):
             }],
         )
 
+    def test_question_actions_do_not_record_answers(self):
+        for action in ("replace", "regenerate", "skip"):
+            session = self.session()
+            session.chat_list.append({"role": "assistant", "content": "????"})
+            with (
+                patch.object(session, "_get_knowledge", return_value=""),
+                patch(
+                    "services.interview_service.chat_completion",
+                    return_value=[stream_chunk("???")],
+                ),
+            ):
+                reply = "".join(session.stream_question_action(action))
+            self.assertEqual(reply, "???")
+            self.assertEqual(session.qa_history, [])
+            self.assertEqual(session.chat_list[-1]["content"], "???")
+
+    def test_question_focus_is_cached(self):
+        session = self.session()
+        session.chat_list.append({"role": "assistant", "content": "????????"})
+        focus_payload = json.dumps({
+            "focus": ["????", "????"],
+            "answer_tip": "???????????",
+        }, ensure_ascii=False)
+        with patch(
+            "services.interview_service.chat_completion",
+            return_value=completion(focus_payload),
+        ) as chat_completion:
+            first = session.get_question_focus()
+            second = session.get_question_focus()
+        self.assertEqual(first, second)
+        self.assertEqual(chat_completion.call_count, 1)
+        self.assertEqual(session.qa_history, [])
+
     def test_report_scores_are_normalized_and_cached(self):
         session = self.session()
         session.qa_history = [{"question": "什么是事务？", "answer": "事务具有ACID特性。"}]

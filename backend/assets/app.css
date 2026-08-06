@@ -553,7 +553,45 @@
         }
 
         /* 底部输入栏 */
-        .input-bar {
+                .interview-question-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-width: 720px;
+            margin-top: 18px;
+        }
+
+        .interview-question-actions .btn {
+            width: auto;
+            min-height: 34px;
+            padding: 7px 12px;
+            border-radius: 18px;
+            font-size: 13px;
+        }
+
+        .question-focus-card {
+            margin: 14px 0 4px;
+            padding: 14px 16px;
+            max-width: 720px;
+            border: 1px solid #eee3bd;
+            border-radius: 12px;
+            background: #fffcf2;
+            color: #5d5338;
+            line-height: 1.7;
+        }
+
+        .question-focus-card strong,
+        .question-focus-tip {
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .question-focus-tip {
+            margin-top: 8px;
+            color: #7a6b43;
+        }
+
+.input-bar {
             display: flex;
             padding: 20px 0 10px;
             gap: 12px;

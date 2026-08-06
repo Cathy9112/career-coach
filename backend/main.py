@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import quote
 from urllib.request import urlopen
 from uuid import uuid4
+from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, File, Form, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -391,6 +392,11 @@ class InterviewReportReq(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
 
 
+class InterviewQuestionActionReq(BaseModel):
+    session_id: str = Field(..., min_length=1, max_length=100)
+    action: Literal["replace", "regenerate", "skip", "focus"]
+
+
 class ChatStreamReq(BaseModel):
     session_id: str = Field(..., min_length=1, max_length=100)
     message: str = Field(..., min_length=1, max_length=20_000)
@@ -435,6 +441,7 @@ def _save_interview(session_id: str, session: InterviewSession, user_id: int) ->
         "chat_list": session.chat_list,
         "qa_history": session.qa_history,
         "report": session.report,
+        "question_focus": session.question_focus,
         "user_id": user_id,
     })
 
@@ -452,6 +459,7 @@ def _load_interview(session_id: str, user_id: int) -> InterviewSession | None:
     session.chat_list = payload.get("chat_list", session.chat_list)
     session.qa_history = payload.get("qa_history", [])
     session.report = payload.get("report")
+    session.question_focus = payload.get("question_focus", {})
     return session
 
 
@@ -656,6 +664,54 @@ def api_interview_stream(
         headers=SSE_HEADERS,
     )
 
+
+
+# ========== 5. ???????? ==========
+@app.post("/api/interview/question-action")
+def api_interview_question_action(
+    req: InterviewQuestionActionReq,
+    user: User = Depends(get_current_user),
+):
+    session_lock = session_store.acquire_lock("interview", req.session_id)
+    if session_lock is None:
+        raise HTTPException(status_code=409, detail="?????????????")
+    try:
+        session = _load_interview(req.session_id, user.id)
+        if session is None:
+            raise HTTPException(status_code=404, detail="?????")
+
+        if req.action == "focus":
+            question = session.get_current_question()
+            if not question:
+                raise HTTPException(status_code=400, detail="?????????????")
+            if question not in session.question_focus:
+                enforce_llm_limits(user)
+            result = session.get_question_focus()
+            _save_interview(req.session_id, session, user.id)
+            return {"code": 200, "data": result}
+
+        enforce_llm_limits(user)
+
+        def generate():
+            try:
+                for text in session.stream_question_action(req.action):
+                    yield _sse({"content": text})
+                _save_interview(req.session_id, session, user.id)
+                yield "data:[DONE]\n\n"
+            except ValueError as exc:
+                yield _sse({"error": str(exc)})
+                yield "data:[DONE]\n\n"
+            except Exception:
+                logger.exception("Interview question action failed")
+                yield _sse({"error": "????????????"})
+                yield "data:[DONE]\n\n"
+            finally:
+                session_store.release_lock(session_lock)
+
+        return StreamingResponse(generate(), media_type="text/event-stream", headers=SSE_HEADERS)
+    except Exception:
+        session_store.release_lock(session_lock)
+        raise
 
 # ========== 5. 生成面试评分和最终报告接口 ==========
 @app.post("/api/interview/report")

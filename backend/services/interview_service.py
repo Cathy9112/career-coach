@@ -146,6 +146,7 @@ class InterviewSession:
         self.user_id = user_id
         self.qa_history = []
         self.report = None
+        self.question_focus = {}
 
         self.system_prompt = INTERVIEW_SYSTEM_PROMPT.format(
             target_position=target_position,
@@ -234,6 +235,108 @@ class InterviewSession:
 
             except BaseException:
                 # Roll back both ordinary failures and client disconnects.
+                self.chat_list = original_chat
+                self.qa_history = original_qa_history
+                raise
+
+    def get_current_question(self) -> str | None:
+        return next(
+            (
+                item["content"]
+                for item in reversed(self.chat_list)
+                if item.get("role") == "assistant" and item.get("content", "").strip()
+            ),
+            None,
+        )
+
+    def get_question_focus(self) -> dict:
+        question = self.get_current_question()
+        if not question:
+            raise ValueError("No current interview question")
+        cached = self.question_focus.get(question)
+        if cached is not None:
+            return cached
+
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are an interview coaching assistant. Based only on the interview question, "
+                    "extract the key points being assessed. Do not invent candidate experience or evaluate "
+                    "the candidate. Return valid JSON only, without Markdown. Format: "
+                    "{\"focus\":[\"point 1\",\"point 2\"],\"answer_tip\":\"answer tip\"}"
+                ),
+            },
+            {"role": "user", "content": question},
+        ]
+        response = chat_completion(messages, stream=False)
+        content = completion_content(response).strip()
+        start = content.find("{")
+        end = content.rfind("}")
+        payload = {}
+        if start >= 0 and end > start:
+            try:
+                payload = json.loads(content[start:end + 1])
+            except json.JSONDecodeError:
+                payload = {}
+        focus = payload.get("focus", [])
+        if not isinstance(focus, list):
+            focus = []
+        focus = [str(item).strip() for item in focus[:3] if str(item).strip()]
+        result = {
+            "question": question,
+            "focus": focus or ["????????", "???????"],
+            "answer_tip": str(payload.get("answer_tip", "??????????????????")),
+        }
+        self.question_focus[question] = result
+        return result
+
+    def stream_question_action(self, action: str):
+        if action not in {"replace", "regenerate", "skip"}:
+            raise ValueError("Unsupported question action")
+        with self._lock:
+            original_chat = self.chat_list.copy()
+            original_qa_history = self.qa_history.copy()
+            try:
+                current_question = self.get_current_question()
+                if not current_question:
+                    raise ValueError("No current interview question")
+                while self.chat_list and self.chat_list[-1].get("role") == "assistant":
+                    self.chat_list.pop()
+                instructions = {
+                    "replace": (
+                        "The candidate requests a different question. Ignore the current question and ask one "
+                        "new interview question about a different job-related skill or knowledge point. Do not "
+                        "explain this operation and do not treat this instruction as a candidate answer."
+                    ),
+                    "regenerate": (
+                        "The candidate requests a regenerated question. Keep the same core assessment point but "
+                        "ask it in a clearer, specific, and different way. Output one question only. Do not "
+                        "explain this operation and do not treat this instruction as a candidate answer."
+                    ),
+                    "skip": (
+                        "The candidate requests to skip the current question. Do not record or evaluate it. Ask "
+                        "the next question about a different assessment point. Output one question only."
+                    ),
+                }
+                knowledge = self._get_knowledge(
+                    f"{self.target_position} {self.job_description[:1000]} {instructions[action]}"
+                )
+                prompt = instructions[action]
+                if knowledge:
+                    prompt = knowledge + "\n" + prompt
+                self.chat_list.append({"role": "user", "content": prompt})
+                response = chat_completion(self.chat_list, stream=True)
+                full_reply = ""
+                for chunk in response:
+                    if chunk.choices and len(chunk.choices) > 0:
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, "content") and delta.content:
+                            text = delta.content.replace("**", "").replace("###", "").replace("- ", "")
+                            full_reply += text
+                            yield text
+                self.chat_list.append({"role": "assistant", "content": full_reply})
+            except BaseException:
                 self.chat_list = original_chat
                 self.qa_history = original_qa_history
                 raise

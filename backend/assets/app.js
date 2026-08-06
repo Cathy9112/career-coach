@@ -700,6 +700,110 @@
                 contentDom.classList.remove("typing-cursor");
                 interviewIsTyping = false;
                 document.getElementById("interviewSendBtn").disabled = interviewCompleted;
+                updateInterviewQuestionActions();
+            }
+        }
+
+        function setInterviewQuestionActionsDisabled(disabled) {
+            const actionIds = ["replaceQuestionBtn", "regenerateQuestionBtn", "viewQuestionFocusBtn", "skipQuestionBtn"];
+            actionIds.forEach(id => {
+                const button = document.getElementById(id);
+                if (button) button.disabled = disabled;
+            });
+            document.getElementById("interviewSendBtn").disabled = disabled || interviewCompleted;
+            document.getElementById("interviewVoiceBtn").disabled = disabled || interviewCompleted;
+        }
+
+        function updateInterviewQuestionActions() {
+            const panel = document.getElementById("interviewQuestionActions");
+            if (!panel) return;
+            const hasQuestion = Boolean(interviewSessionId) &&
+                !interviewCompleted &&
+                [...document.querySelectorAll("#interviewChatBox .msg-item.assistant .msg-content")]
+                    .some(node => node.textContent.trim());
+            panel.hidden = !hasQuestion;
+        }
+
+        function removeQuestionFocus() {
+            document.getElementById("questionFocusCard")?.remove();
+        }
+
+        async function requestInterviewQuestionAction(action) {
+            if (!interviewSessionId) {
+                alert("\u8bf7\u5148\u5f00\u59cb\u9762\u8bd5");
+                return;
+            }
+            if (interviewIsTyping) return;
+            if (action === "focus") {
+                try {
+                    const data = await request("/api/interview/question-action", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ session_id: interviewSessionId, action })
+                    });
+                    let card = document.getElementById("questionFocusCard");
+                    if (!card) {
+                        card = document.createElement("div");
+                        card.id = "questionFocusCard";
+                        card.className = "question-focus-card";
+                        document.getElementById("interviewChatBox").appendChild(card);
+                    }
+                    card.innerHTML = "";
+                    const title = document.createElement("strong");
+                    title.textContent = "\u672c\u9898\u8003\u5bdf\u70b9";
+                    card.appendChild(title);
+                    (data.data.focus || []).forEach(item => {
+                        const point = document.createElement("div");
+                        point.textContent = "\u2022 " + item;
+                        card.appendChild(point);
+                    });
+                    const tip = document.createElement("div");
+                    tip.className = "question-focus-tip";
+                    tip.textContent = "\u4f5c\u7b54\u63d0\u793a\uff1a" + (data.data.answer_tip || "\u8bf7\u7ed3\u5408\u771f\u5b9e\u7ecf\u5386\u8bf4\u660e\u3002");
+                    card.appendChild(tip);
+                    scrollToBottom("interviewChatBox");
+                } catch (error) {
+                    alert("\u83b7\u53d6\u8003\u5bdf\u70b9\u5931\u8d25\uff1a" + error.message);
+                }
+                return;
+            }
+
+            const labels = { replace: "\u6b63\u5728\u66f4\u6362\u9898\u76ee\u2026", regenerate: "\u6b63\u5728\u91cd\u65b0\u751f\u6210\u95ee\u9898\u2026", skip: "\u5df2\u8df3\u8fc7\u672c\u9898\uff0c\u6b63\u5728\u751f\u6210\u4e0b\u4e00\u9898\u2026" };
+            interviewIsTyping = true;
+            removeQuestionFocus();
+            setInterviewQuestionActionsDisabled(true);
+            document.getElementById("interviewInfo").textContent = labels[action] || "\u6b63\u5728\u751f\u6210\u95ee\u9898\u2026";
+            const msgDom = appendMsg("interviewChatBox", "assistant", "\u9762\u8bd5\u5b98", "");
+            const contentDom = msgDom.querySelector(".msg-content");
+            contentDom.classList.add("typing-cursor");
+            const controller = new AbortController();
+            interviewAbortController?.abort();
+            interviewAbortController = controller;
+            try {
+                await streamPost("/api/interview/question-action", {
+                    session_id: interviewSessionId,
+                    action
+                }, controller, dataText => {
+                    if (dataText === "[DONE]") return;
+                    const data = JSON.parse(dataText);
+                    if (data.error) throw new Error(data.error);
+                    if (data.content) {
+                        contentDom.textContent += data.content;
+                        scrollToBottom("interviewChatBox");
+                    }
+                });
+                document.getElementById("interviewInfo").textContent = "\u8bf7\u56de\u7b54\u5f53\u524d\u95ee\u9898";
+            } catch (error) {
+                if (error.name !== "AbortError") {
+                    msgDom.remove();
+                    alert("\u64cd\u4f5c\u5931\u8d25\uff1a" + error.message);
+                }
+            } finally {
+                if (interviewAbortController === controller) interviewAbortController = null;
+                contentDom.classList.remove("typing-cursor");
+                interviewIsTyping = false;
+                setInterviewQuestionActionsDisabled(false);
+                updateInterviewQuestionActions();
             }
         }
 
@@ -797,6 +901,7 @@
 
             document.getElementById("interviewChatBox").hidden = true;
             document.getElementById("interviewInputBar").hidden = true;
+            document.getElementById("interviewQuestionActions").hidden = true;
             document.getElementById("interviewHistoryPanel").hidden = true;
             panel.hidden = false;
             document.getElementById("interviewInfo").innerText = `面试完成 · ${report.overall_score} 分`;
@@ -1175,6 +1280,11 @@
         document.getElementById("genBtn").addEventListener("click", generateFullResume);
         document.getElementById("exportResumeBtn").addEventListener("click", exportResume);
         document.getElementById("finishInterviewBtn").addEventListener("click", finishInterview);
+        document.getElementById("replaceQuestionBtn").addEventListener("click", () => requestInterviewQuestionAction("replace"));
+        document.getElementById("regenerateQuestionBtn").addEventListener("click", () => requestInterviewQuestionAction("regenerate"));
+        document.getElementById("viewQuestionFocusBtn").addEventListener("click", () => requestInterviewQuestionAction("focus"));
+        document.getElementById("skipQuestionBtn").addEventListener("click", () => requestInterviewQuestionAction("skip"));
+
         document.getElementById("interviewHistoryBtn").addEventListener("click", toggleInterviewHistory);
         document.getElementById("resetInterviewBtn").addEventListener("click", resetInterview);
         document.getElementById("interviewVoiceBtn").addEventListener("click", toggleInterviewVoice);
